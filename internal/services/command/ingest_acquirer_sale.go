@@ -110,12 +110,17 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 			FeeAccountAlias:         "@platform/mdr_revenue",
 			SourceAccountAlias:      clearingAlias,
 			DestinationAccountAlias: acc.AccountAlias,
+			Pending:                 true,
 			Metadata:                metadata,
 		}
 
-		if _, err := h.midazClient.PostTransaction(ctx, input.OrganizationID, input.LedgerID, tx); err != nil {
-			return fmt.Errorf("ingest_acquirer_sale: failed posting D+0 transaction for installment %d: %w", inst.InstallmentNumber, err)
+		txID, err := h.midazClient.PostTransaction(ctx, input.OrganizationID, input.LedgerID, tx)
+		if err != nil {
+			return fmt.Errorf("ingest_acquirer_sale: failed posting D+0 pending transaction for installment %d: %w", inst.InstallmentNumber, err)
 		}
+
+		inst.MidazReceivableTxID = &txID
+		_ = h.repo.UpdateInstallmentReceivableTxID(ctx, inst.ID, txID)
 	}
 
 	return nil

@@ -1,93 +1,135 @@
 # Inter-Plugin Protocol: Open Finance & Receivables Choreography
 
-## 1. Problem: The Double-Credit Hazard
+## 1. Problem: The Double-Credit & Misattribution Hazard
 
-In an enterprise banking architecture:
-1. **Plugin Open Finance** monitors real bank accounts. Every time a deposit enters the bank, its default behavior is:
-   $$\text{Midaz: } \texttt{@external/BRL:openfinance} \longrightarrow \texttt{@merchant/conta\_corrente}$$
-2. **Plugin Receivables** monitors card acquirers. Every time a card sale is made, it records:
-   $$\text{Midaz: } \texttt{@external/acquirer\_sumup} \longrightarrow \texttt{@merchant/agenda\_recebiveis}$$
+In an integrated financial ledger system:
+1. **Plugin Open Finance** mirrors real bank accounts (e.g., Sicredi, Itaú, Bradesco). Every time a deposit enters the bank statement, its default behavior is:
+   $$\text{Midaz: } \texttt{@external/BRL:openfinance} \longrightarrow \texttt{@contadomeucliente/openfinance}$$
+2. **Plugin Receivables** ingests card sales across multiple acquirers (SumUp, PagBank, Cielo). On sale creation ($D+0$), it records:
+   $$\text{Midaz: } \texttt{@external/acquirer\_sumup} \overset{\text{pending: true}}{\longrightarrow} \texttt{@XPTO/receivables}$$
 
-If both plugins operate independently without coordination:
+If both plugins operate in silos without orchestration:
 * When the acquirer pays the merchant, the money hits the merchant's bank account.
-* Open Finance perceives a bank deposit and credits `@merchant/conta_corrente`.
-* **The Result:** The merchant now has money in `@merchant/agenda_recebiveis` AND money in `@merchant/conta_corrente`. The balance is **duplicated**, and the receivables agenda is never closed!
+* Open Finance perceives an incoming credit and blindly credits `@contadomeucliente/openfinance` from `@external/BRL:openfinance`.
+* **The Result:** The money is credited in `@contadomeucliente/openfinance`, but the future claims in `@XPTO/receivables` remain pending forever, causing balance inflation and loss of financial traceability.
 
 ---
 
-## 2. The Solution: The `reconcile` Account Flag
+## 2. The Solution: Pre-Ingestion Matching & Multi-Source Two-Phase Settlement
 
-To prevent this collision, an inter-plugin contract is established via the account configuration within `plugin-openfinance`.
+To solve this, the plugins orchestrate via **Matcher 6** and Midaz's native **Two-Phase Commit** and **$N:1$ Multi-Source Transactions**:
 
-### Account Configuration Schema in `plugin-openfinance`:
+```mermaid
+sequenceDiagram
+    autonumber
+    participant POS as Acquirer (SumUp/PagBank)
+    participant REC as Plugin Receivables
+    participant MID as Midaz Ledger
+    participant OF as Plugin Open Finance
+    participant MAT as Matcher 6 (Port 4018)
+
+    Note over POS,MID: D+0: Sale Ingestion
+    POS->>REC: Ingest Sale (NSU, Installments, Net Amount)
+    REC->>MID: POST /transactions (pending: true)<br/>@external/acquirer -> @XPTO/receivables
+    MID-->>REC: Returns midaz_receivable_tx_id
+    REC->>REC: Store midaz_receivable_tx_id in DB
+    REC->>MAT: Upload to Source A (Expected Receivables)
+
+    Note over OF,MID: D+X: Bank Statement Sync
+    OF->>OF: Fetch new bank transactions (Sicredi)
+    alt reconciliation_enabled == true AND Acquirer Deposit
+        OF->>MAT: Upload bank credit to Source B
+        Note over MAT: Matcher performs automated reconciliation
+        MAT->>REC: Webhook: Approved Match (Bank Tx + N Receivables)
+        loop For each matched receivable
+            REC->>MID: POST /transactions/{id}/commit<br/>(Commit pending credit in @XPTO/receivables)
+        end
+        REC->>MID: POST /transactions (Multi-Source N:1)<br/>N legs from @XPTO/receivables -> 1 leg to @contadomeucliente/openfinance
+        REC->>REC: Mark installments RECONCILED in DB
+    else Non-Reconciled / Standard Bank Movement
+        OF->>MID: POST /transactions (1:1)<br/>@external/BRL:openfinance -> @contadomeucliente/openfinance
+    end
+```
+
+---
+
+## 3. Account Configuration Schema in `plugin-openfinance`
+
+To enable this orchestration, accounts in `plugin-openfinance` specify their reconciliation target:
+
 ```json
 {
-  "account_id": "01948df2-abcd-7000-8000-000000000001",
-  "account_alias": "@merchant_123/conta_corrente",
-  "bank_connection_id": "conn_itau_998877",
-  "reconciliation": {
-    "enabled": true,
-    "target_agenda_account": "@merchant_123/agenda_recebiveis",
-    "matcher_context_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "matcher_source_id": "bank_statement_credits",
-    "matcher_url": "http://matcher-app:4018"
+  "id": "01948df2-abcd-7000-8000-000000000001",
+  "bank_compe": "748",
+  "bank_account_id": "sicredi_acc_998877",
+  "midaz_account_alias": "@contadomeucliente/openfinance",
+  "reconciliation_enabled": true,
+  "reconciliation_receivables_account": "@XPTO/receivables"
+}
+```
+
+### Configuration Fields:
+- `reconciliation_enabled` (boolean): When `true`, incoming credits matching acquirer deposit criteria are diverted to Matcher 6 before posting to Midaz.
+- `reconciliation_receivables_account` (string): The alias of the receivables account (e.g. `@XPTO/receivables`) holding the pending/accrued installments.
+
+---
+
+## 4. Multi-Source $N:1$ Midaz Settlement Contract
+
+When Matcher 6 reconciles 1 bank deposit against $N$ scheduled receivables (e.g. 1 bank deposit of R$ 300.00 matched against 3 receivables: R$ 200.00 from SumUp, R$ 50.00 from PagBank, R$ 50.00 from PagBank):
+
+1. **Phase 1: Commit Pending Receivables**
+   The plugin issues `POST /v1/organizations/{org}/ledgers/{ledger}/transactions/{id}/commit` for each of the 3 receivables. This commits the transactions in `@XPTO/receivables`, releasing them from pending hold.
+
+2. **Phase 2: Multi-Source Transfer ($N$ Sources $\rightarrow$ 1 Destination)**
+   The plugin posts a single multi-source transaction to Midaz:
+
+```json
+{
+  "chartOfAccountsGroupName": "OPEN_FINANCE_SYNC",
+  "description": "Open Finance Deposit OFP-SICREDI-998877 (Conciliated with 3 Receivables)",
+  "code": "OFP-SICREDI-998877",
+  "send": {
+    "asset": "BRL",
+    "value": "300.00",
+    "source": {
+      "from": [
+        {
+          "accountAlias": "@XPTO/receivables",
+          "amount": { "asset": "BRL", "value": "200.00" },
+          "description": "Receivable REC-SUMUP-1001-1 (NSU: 1001)"
+        },
+        {
+          "accountAlias": "@XPTO/receivables",
+          "amount": { "asset": "BRL", "value": "50.00" },
+          "description": "Receivable REC-PAGBANK-2001-1 (NSU: 2001)"
+        },
+        {
+          "accountAlias": "@XPTO/receivables",
+          "amount": { "asset": "BRL", "value": "50.00" },
+          "description": "Receivable REC-PAGBANK-2002-1 (NSU: 2002)"
+        }
+      ]
+    },
+    "distribute": {
+      "to": [
+        {
+          "accountAlias": "@contadomeucliente/openfinance",
+          "amount": { "asset": "BRL", "value": "300.00" },
+          "description": "Credit Mirrored Open Finance Bank Account"
+        }
+      ]
+    }
   }
 }
 ```
 
 ---
 
-## 3. Decision Tree inside `plugin-openfinance`
+## 5. Non-Reconciled Fallback Transactions
 
-When `plugin-openfinance` ingests a bank transaction:
-
-```mermaid
-flowchart TD
-    TxIn["Transação Bancária Ingerida pelo Open Finance"] --> IsCredit{"Tipo da Transação?"}
-    
-    IsCredit -->|DEBITO / Saída| PostDirectDebit["Post Imediato no Midaz:<br/>@merchant/conta_corrente -> @external/openfinance"]
-    
-    IsCredit -->|CREDITO / Entrada| CheckFlag{"reconciliation.enabled == true?"}
-    
-    CheckFlag -->|Não / false| PostDirectCredit["Post Imediato no Midaz:<br/>@external/openfinance -> @merchant/conta_corrente"]
-    
-    CheckFlag -->|Sim / true| CheckDesc{"Descrição contém indício de adquirente?<br/>(SUMUP, PAGSEGURO, CIELO, STONE, REDE)"}
-    
-    CheckDesc -->|Não / Depósito Avulso| PostDirectCredit
-    CheckDesc -->|Sim / Depósito Adquirente| PushToMatcher["NÃO LANÇAR NO MIDAZ!<br/>Upload do Registro no Matcher 6 (Fonte B)"]
-    
-    PushToMatcher --> AwaitMatch["Aguardar Batimento do Matcher 6"]
-    AwaitMatch --> MatchSuccess["Matcher Aprova Batimento com a Agenda"]
-    MatchSuccess --> SettleBaja["Plugin de Recebíveis executa a baixa:<br/>@merchant/agenda_recebiveis -> @merchant/conta_corrente"]
-```
-
----
-
-## 4. Shared Ingestion Contract: Source B Payload
-
-When `plugin-openfinance` flags a bank deposit for reconciliation, it formats the item and sends it to Matcher 6:
-
-```json
-{
-  "id": "OFP-ITAU-TX998877",
-  "booking_date": "2026-12-20",
-  "credit_amount": "97.00",
-  "merchant_id": "merchant_123",
-  "account_alias": "@merchant_123/conta_corrente",
-  "agenda_alias": "@merchant_123/agenda_recebiveis",
-  "description": "CREDITO TED SUMUP BRASIL",
-  "bank_name": "BANCO ITAU UNIBANCO S.A.",
-  "raw_transaction_id": "TX998877"
-}
-```
-
----
-
-## 5. Fallback & Orphan Credits Handling
-
-What happens if a bank credit is marked for reconciliation, but after 5 days no matching receivable is found in the agenda?
-
-1. **Matcher Discrepancy Alert:** Matcher 6 registers the item as `UNMATCHED` in Source B.
-2. **Fallback Resolution Policy:**
-   - **Option 1 (Auto-Release):** After a configurable SLA (e.g. 7 days), the credit is released as a generic deposit into `@merchant_123/conta_corrente` from `@external/BRL:openfinance` with metadata `"reconciliation_status": "UNMATCHED_FALLBACK"`.
-   - **Option 2 (Manual Review):** The transaction remains pending in a reconciliation queue visible in the Midaz Console dashboard for manual operator pairing.
+All other movements in the bank account (e.g. outgoing wire transfers, debit charges, payroll, generic Pix deposits):
+- Do **not** touch `@XPTO/receivables`.
+- Continue using the standard Open Finance direct posting:
+  - For debits: `@contadomeucliente/openfinance` $\rightarrow$ `@external/BRL:openfinance`
+  - For credits: `@external/BRL:openfinance` $\rightarrow$ `@contadomeucliente/openfinance`

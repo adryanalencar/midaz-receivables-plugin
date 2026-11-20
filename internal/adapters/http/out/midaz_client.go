@@ -121,7 +121,7 @@ func (c *MidazClient) CreateAccount(ctx context.Context, organizationID, ledgerI
 	return alias, nil
 }
 
-// PostTransaction executes a double-entry transaction in Midaz balancing debits and credits.
+// PostTransaction executes a double-entry transaction in Midaz (supports pending: true).
 func (c *MidazClient) PostTransaction(ctx context.Context, organizationID, ledgerID string, tx *domain.MidazTransactionPayload) (string, error) {
 	if tx == nil {
 		return "", fmt.Errorf("midaz: nil transaction payload")
@@ -176,6 +176,7 @@ func (c *MidazClient) PostTransaction(ctx context.Context, organizationID, ledge
 		"chartOfAccountsGroupName": tx.ChartOfAccountsGroupName,
 		"description":              tx.Description,
 		"code":                     tx.Code,
+		"pending":                  tx.Pending,
 		"metadata":                 tx.Metadata,
 		"send": map[string]any{
 			"asset": asset,
@@ -224,6 +225,140 @@ func (c *MidazClient) PostTransaction(ctx context.Context, organizationID, ledge
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("midaz: transaction rejected (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var respData struct {
+		ID   string `json:"id"`
+		Code string `json:"code"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&respData)
+	if respData.ID != "" {
+		return respData.ID, nil
+	}
+
+	return tx.Code, nil
+}
+
+// CommitTransaction confirms a pending transaction in Midaz, moving funds to available balance.
+func (c *MidazClient) CommitTransaction(ctx context.Context, organizationID, ledgerID, transactionID string) error {
+	url := fmt.Sprintf("%s/v1/organizations/%s/ledgers/%s/transactions/%s/commit",
+		c.cfg.MidazTransactionURL, organizationID, ledgerID, transactionID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer([]byte(`{}`)))
+	if err != nil {
+		return fmt.Errorf("midaz: failed creating commit request: %w", err)
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("midaz: commit transaction request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusConflict {
+		// Already committed
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("midaz: commit transaction rejected (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// PostMultiSourceTransaction posts an atomic N:1 transaction transferring from N receivables sources to 1 destination.
+func (c *MidazClient) PostMultiSourceTransaction(ctx context.Context, organizationID, ledgerID string, tx *domain.MultiSourceTransactionPayload) (string, error) {
+	if tx == nil {
+		return "", fmt.Errorf("midaz: nil multi-source transaction payload")
+	}
+
+	url := fmt.Sprintf("%s/v1/organizations/%s/ledgers/%s/transactions/json",
+		c.cfg.MidazTransactionURL, organizationID, ledgerID)
+
+	scale := int32(2)
+	centsValue := tx.TotalAmount.Mul(decimal.NewFromInt(100)).IntPart()
+	asset := tx.AssetCode
+	if asset == "" {
+		asset = "BRL"
+	}
+
+	fromLegs := make([]map[string]any, len(tx.Sources))
+	for i, src := range tx.Sources {
+		fromLegs[i] = map[string]any{
+			"accountAlias": src.AccountAlias,
+			"amount": map[string]any{
+				"asset": asset,
+				"value": src.Amount.StringFixed(2),
+			},
+			"description": src.Description,
+		}
+	}
+
+	toLegs := []map[string]any{
+		{
+			"accountAlias": tx.DestinationAccountAlias,
+			"amount": map[string]any{
+				"asset": asset,
+				"value": tx.TotalAmount.StringFixed(2),
+			},
+			"description": tx.Description,
+		},
+	}
+
+	payload := map[string]any{
+		"chartOfAccountsGroupName": tx.ChartOfAccountsGroupName,
+		"description":              tx.Description,
+		"code":                     tx.Code,
+		"metadata":                 tx.Metadata,
+		"send": map[string]any{
+			"asset": asset,
+			"value": centsValue,
+			"scale": scale,
+			"source": map[string]any{
+				"from": fromLegs,
+			},
+			"distribute": map[string]any{
+				"to": toLegs,
+			},
+		},
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("midaz: failed marshaling multi-source transaction: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return "", fmt.Errorf("midaz: failed creating multi-source transaction request: %w", err)
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("midaz: multi-source transaction request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusConflict {
+		return tx.Code, nil
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("midaz: multi-source transaction rejected (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var respData struct {
+		ID   string `json:"id"`
+		Code string `json:"code"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&respData)
+	if respData.ID != "" {
+		return respData.ID, nil
 	}
 
 	return tx.Code, nil

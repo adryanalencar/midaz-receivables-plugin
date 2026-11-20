@@ -71,6 +71,9 @@ func (m *MockRepo) ListPendingInstallmentsForMatcher(ctx context.Context, window
 func (m *MockRepo) MarkInstallmentUploadedToMatcher(ctx context.Context, installmentID, matcherRecordID string) error {
 	return nil
 }
+func (m *MockRepo) UpdateInstallmentReceivableTxID(ctx context.Context, installmentID, txID string) error {
+	return nil
+}
 func (m *MockRepo) MarkInstallmentReconciled(ctx context.Context, installmentID, midazSettlementTxID, matcherRunID string, settlementDate time.Time) error {
 	return nil
 }

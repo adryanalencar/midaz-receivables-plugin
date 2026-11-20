@@ -13,7 +13,7 @@ import (
 )
 
 func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
-	t.Run("Success 2 Installments D+0 Ingestion", func(t *testing.T) {
+	t.Run("Success 2 Installments D+0 Ingestion with Pending Status", func(t *testing.T) {
 		repo := new(MockRepository)
 		midazClient := new(MockMidazClient)
 
@@ -43,6 +43,7 @@ func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
 			InstallmentsCount: 2,
 			Installments: []domain.Installment{
 				{
+					ID:                     "inst_1",
 					InstallmentNumber:      1,
 					GrossAmount:            decimal.NewFromFloat(100.00),
 					MDRFee:                 decimal.NewFromFloat(3.00),
@@ -50,6 +51,7 @@ func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
 					ExpectedSettlementDate: saleDate.AddDate(0, 0, 30),
 				},
 				{
+					ID:                     "inst_2",
 					InstallmentNumber:      2,
 					GrossAmount:            decimal.NewFromFloat(100.00),
 					MDRFee:                 decimal.NewFromFloat(3.00),
@@ -61,23 +63,27 @@ func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
 
 		repo.On("SaveSaleWithInstallments", mock.Anything, sale).Return(nil)
 
-		// Expect Midaz transaction for installment 1
+		// Expect Midaz pending transaction for installment 1
 		midazClient.On("PostTransaction", mock.Anything, "org_1", "led_1", mock.MatchedBy(func(tx *domain.MidazTransactionPayload) bool {
 			return tx.Code == "REC-SUMUP-NSU_TEST_001-1" &&
 				tx.SourceAccountAlias == "@external/acquirer_sumup" &&
 				tx.DestinationAccountAlias == "@merchant_b/receivables" &&
 				tx.Amount.Equal(decimal.NewFromFloat(100.00)) &&
-				tx.FeeAmount.Equal(decimal.NewFromFloat(3.00))
-		})).Return("REC-SUMUP-NSU_TEST_001-1", nil)
+				tx.Pending == true
+		})).Return("midaz_tx_101", nil)
 
-		// Expect Midaz transaction for installment 2
+		repo.On("UpdateInstallmentReceivableTxID", mock.Anything, "inst_1", "midaz_tx_101").Return(nil)
+
+		// Expect Midaz pending transaction for installment 2
 		midazClient.On("PostTransaction", mock.Anything, "org_1", "led_1", mock.MatchedBy(func(tx *domain.MidazTransactionPayload) bool {
 			return tx.Code == "REC-SUMUP-NSU_TEST_001-2" &&
 				tx.SourceAccountAlias == "@external/acquirer_sumup" &&
 				tx.DestinationAccountAlias == "@merchant_b/receivables" &&
 				tx.Amount.Equal(decimal.NewFromFloat(100.00)) &&
-				tx.FeeAmount.Equal(decimal.NewFromFloat(3.00))
-		})).Return("REC-SUMUP-NSU_TEST_001-2", nil)
+				tx.Pending == true
+		})).Return("midaz_tx_102", nil)
+
+		repo.On("UpdateInstallmentReceivableTxID", mock.Anything, "inst_2", "midaz_tx_102").Return(nil)
 
 		handler := NewIngestAcquirerSaleHandler(repo, midazClient)
 		err := handler.Execute(context.Background(), IngestAcquirerSaleInput{

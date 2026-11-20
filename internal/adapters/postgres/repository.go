@@ -623,6 +623,28 @@ func (r *Repository) MarkInstallmentUploadedToMatcher(ctx context.Context, insta
 	return nil
 }
 
+// UpdateInstallmentReceivableTxID links the initial D+0 Midaz transaction ID to the installment.
+func (r *Repository) UpdateInstallmentReceivableTxID(ctx context.Context, installmentID, txID string) error {
+	query := `
+		UPDATE receivables_installments
+		SET midaz_receivable_tx_id = $2,
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+
+	res, err := r.db.ExecContext(ctx, query, installmentID, txID)
+	if err != nil {
+		return fmt.Errorf("repository: failed to update installment receivable tx id: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return ErrInstallmentNotFound
+	}
+
+	return nil
+}
+
 // MarkInstallmentReconciled flags the installment as reconciled and links the settlement transaction.
 func (r *Repository) MarkInstallmentReconciled(ctx context.Context, installmentID, midazSettlementTxID, matcherRunID string, settlementDate time.Time) error {
 	query := `
