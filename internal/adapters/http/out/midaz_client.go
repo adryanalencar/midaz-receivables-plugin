@@ -126,14 +126,21 @@ func (c *MidazClient) CreateAccount(ctx context.Context, organizationID, ledgerI
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusConflict {
 		// Account already exists
 		return alias, nil
 	}
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("midaz: account creation rejected (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var createdAcc struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(body, &createdAcc); err == nil && createdAcc.ID != "" {
+		return createdAcc.ID, nil
 	}
 
 	return alias, nil

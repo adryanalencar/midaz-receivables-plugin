@@ -17,14 +17,19 @@ func TestCreateReceivablesAccountHandler_Execute(t *testing.T) {
 		matcherClient := new(MockMatcherClient)
 
 		parentID := "01948df2-mother-0001"
+		receivablesUUID := "01948df2-receivables-0002"
 
 		// Expect creation of Receivables Subaccount
 		midazClient.On("CreateAccount", mock.Anything, "org_1", "led_1", "@merchant_a/receivables", "Merchant Alpha", "creditCard", &parentID).
-			Return("@merchant_a/receivables", nil)
+			Return(receivablesUUID, nil)
+
+		// Expect creation of MDR Revenue Subaccount
+		midazClient.On("CreateAccount", mock.Anything, "org_1", "led_1", "@merchant_a/receivables/mdr_revenue", "Merchant Alpha - MDR Revenue", "revenue", &receivablesUUID).
+			Return("01948df2-mdr-0003", nil)
 
 		// Expect creation of Fee/Tariff Subaccount
-		midazClient.On("CreateAccount", mock.Anything, "org_1", "led_1", "@merchant_a/receivables/fees", "Merchant Alpha - Tariffs & Deductions", "deposit", &parentID).
-			Return("@merchant_a/receivables/fees", nil)
+		midazClient.On("CreateAccount", mock.Anything, "org_1", "led_1", "@merchant_a/receivables/fees", "Merchant Alpha - Tariffs & Deductions", "deposit", &receivablesUUID).
+			Return("01948df2-fees-0004", nil)
 
 		// Expect Matcher Context Provisioning
 		matcherClient.On("EnsureContextAndSources", mock.Anything).
@@ -32,6 +37,7 @@ func TestCreateReceivablesAccountHandler_Execute(t *testing.T) {
 
 		repo.On("CreateReceivablesAccount", mock.Anything, mock.MatchedBy(func(acc *domain.ReceivablesAccount) bool {
 			return acc.AccountAlias == "@merchant_a/receivables" &&
+				acc.MDRRevenueAccountAlias == "@merchant_a/receivables/mdr_revenue" &&
 				acc.FeeAccountAlias == "@merchant_a/receivables/fees" &&
 				acc.MotherAccountAlias == "@merchant_a" &&
 				acc.ParentAccountID != nil && *acc.ParentAccountID == parentID &&
@@ -55,6 +61,7 @@ func TestCreateReceivablesAccountHandler_Execute(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "@merchant_a/receivables", acc.AccountAlias)
+		assert.Equal(t, "@merchant_a/receivables/mdr_revenue", acc.MDRRevenueAccountAlias)
 		assert.Equal(t, "@merchant_a/receivables/fees", acc.FeeAccountAlias)
 		assert.Equal(t, "@merchant_a/checking", acc.CheckingAccountAlias)
 		assert.Equal(t, "ctx_merchant_a", acc.MatcherContextID)

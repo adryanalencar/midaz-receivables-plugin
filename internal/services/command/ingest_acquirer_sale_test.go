@@ -23,8 +23,9 @@ func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
 		}
 
 		acc := &domain.ReceivablesAccount{
-			ID:           "acc_rec_456",
-			AccountAlias: "@merchant_b/receivables",
+			ID:                     "acc_rec_456",
+			AccountAlias:           "@merchant_b/receivables",
+			MDRRevenueAccountAlias: "@merchant_b/receivables/mdr_revenue",
 		}
 
 		repo.On("FindAcquirerConnectionByID", mock.Anything, "conn_123").Return(conn, nil)
@@ -76,6 +77,7 @@ func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
 			return tx.Code == "REC-SUMUP-NSU_TEST_001-1" &&
 				tx.SourceAccountAlias == "@acquirer/sumup" &&
 				tx.DestinationAccountAlias == "@merchant_b/receivables" &&
+				tx.FeeAccountAlias == "@merchant_b/receivables/mdr_revenue" &&
 				tx.Amount.Equal(decimal.NewFromFloat(100.00)) &&
 				tx.Pending == true
 		})).Return("midaz_tx_101", nil)
@@ -96,6 +98,7 @@ func TestIngestAcquirerSaleHandler_Execute(t *testing.T) {
 			return tx.Code == "REC-SUMUP-NSU_TEST_001-2" &&
 				tx.SourceAccountAlias == "@acquirer/sumup" &&
 				tx.DestinationAccountAlias == "@merchant_b/receivables" &&
+				tx.FeeAccountAlias == "@merchant_b/receivables/mdr_revenue" &&
 				tx.Amount.Equal(decimal.NewFromFloat(100.00)) &&
 				tx.Pending == true
 		})).Return("midaz_tx_102", nil)

@@ -112,6 +112,11 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 		}
 
 		// Step B: Post Pending Transaction from internal acquirer account (puts funds on-hold in @acquirer/<name>)
+		mdrAccountAlias := acc.MDRRevenueAccountAlias
+		if mdrAccountAlias == "" {
+			mdrAccountAlias = acc.AccountAlias + "/mdr_revenue"
+		}
+
 		metadata := map[string]any{
 			"acquirer":                 string(sale.Acquirer),
 			"connection_id":            conn.ID,
@@ -124,6 +129,8 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 			"mdr_fee":                  inst.MDRFee.StringFixed(2),
 			"net_amount":               inst.NetAmount.StringFixed(2),
 			"expected_settlement_date": inst.ExpectedSettlementDate.Format("2006-01-02"),
+			"reason":                   "mdr_discount",
+			"charged_by":               string(sale.Acquirer),
 		}
 
 		tx := &domain.MidazTransactionPayload{
@@ -133,7 +140,7 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 			Code:                    code,
 			Amount:                  inst.GrossAmount,
 			FeeAmount:               inst.MDRFee,
-			FeeAccountAlias:         "@platform/mdr_revenue",
+			FeeAccountAlias:         mdrAccountAlias,
 			SourceAccountAlias:      acquirerInternalAlias,
 			DestinationAccountAlias: acc.AccountAlias,
 			Pending:                 true,

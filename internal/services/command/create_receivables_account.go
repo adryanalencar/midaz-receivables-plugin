@@ -62,6 +62,7 @@ func (h *CreateReceivablesAccountHandler) Execute(ctx context.Context, input Cre
 		alias = alias + "/receivables"
 	}
 
+	mdrAlias := alias + "/mdr_revenue"
 	feeAlias := alias + "/fees"
 
 	checkingAlias := input.DefaultCheckingAccountAlias
@@ -69,16 +70,27 @@ func (h *CreateReceivablesAccountHandler) Execute(ctx context.Context, input Cre
 		checkingAlias = "@" + checkingAlias
 	}
 
-	// 1. Provision Receivables Subaccount in Midaz with native parentAccountId
+	// 1. Provision Receivables Subaccount in Midaz with native parentAccountId (Mother Account)
 	midazAccountID, err := h.midazClient.CreateAccount(ctx, input.OrganizationID, input.LedgerID, alias, input.Name, "creditCard", input.ParentAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("create_receivables_account: failed to provision receivables account in Midaz: %w", err)
 	}
 
-	// 2. Provision Tariff/Fee Subaccount in Midaz (@<merchant>/receivables/fees)
-	_, _ = h.midazClient.CreateAccount(ctx, input.OrganizationID, input.LedgerID, feeAlias, input.Name+" - Tariffs & Deductions", "deposit", input.ParentAccountID)
+	// Determine parent UUID for subaccounts (prefer receivables account if UUID returned, fallback to mother account)
+	var subParentID *string
+	if midazAccountID != "" && midazAccountID != alias {
+		subParentID = &midazAccountID
+	} else if input.ParentAccountID != nil {
+		subParentID = input.ParentAccountID
+	}
 
-	// 3. Ensure dedicated tenant Context in Matcher 6 if matcher client is configured
+	// 2. Provision MDR Revenue Subaccount in Midaz (@<merchant>/receivables/mdr_revenue)
+	_, _ = h.midazClient.CreateAccount(ctx, input.OrganizationID, input.LedgerID, mdrAlias, input.Name+" - MDR Revenue", "revenue", subParentID)
+
+	// 3. Provision Tariff/Fee Subaccount in Midaz (@<merchant>/receivables/fees)
+	_, _ = h.midazClient.CreateAccount(ctx, input.OrganizationID, input.LedgerID, feeAlias, input.Name+" - Tariffs & Deductions", "deposit", subParentID)
+
+	// 4. Ensure dedicated tenant Context in Matcher 6 if matcher client is configured
 	matcherContextID := ""
 	if h.matcherClient != nil {
 		ctxID, _, _, err := h.matcherClient.EnsureContextAndSources(ctx)
@@ -89,20 +101,21 @@ func (h *CreateReceivablesAccountHandler) Execute(ctx context.Context, input Cre
 
 	now := time.Now().UTC()
 	account := &domain.ReceivablesAccount{
-		ID:                   uuid.NewString(),
-		OrganizationID:       input.OrganizationID,
-		LedgerID:             input.LedgerID,
-		MidazAccountID:       midazAccountID,
-		ParentAccountID:      input.ParentAccountID,
-		MotherAccountAlias:   input.MotherAccountAlias,
-		AccountAlias:         alias,
-		FeeAccountAlias:      feeAlias,
-		CheckingAccountAlias: checkingAlias,
-		MatcherContextID:     matcherContextID,
-		Name:                 input.Name,
-		Status:               "ACTIVE",
-		CreatedAt:            now,
-		UpdatedAt:            now,
+		ID:                     uuid.NewString(),
+		OrganizationID:         input.OrganizationID,
+		LedgerID:               input.LedgerID,
+		MidazAccountID:         midazAccountID,
+		ParentAccountID:        input.ParentAccountID,
+		MotherAccountAlias:     input.MotherAccountAlias,
+		AccountAlias:           alias,
+		MDRRevenueAccountAlias: mdrAlias,
+		FeeAccountAlias:        feeAlias,
+		CheckingAccountAlias:   checkingAlias,
+		MatcherContextID:       matcherContextID,
+		Name:                   input.Name,
+		Status:                 "ACTIVE",
+		CreatedAt:              now,
+		UpdatedAt:              now,
 	}
 
 	if err := h.repo.CreateReceivablesAccount(ctx, account); err != nil {

@@ -143,7 +143,7 @@ func TestMidazClient_PostTransaction(t *testing.T) {
 			Code:                     "REC-SUMUP-101-1",
 			Amount:                   decimal.NewFromFloat(100.00),
 			FeeAmount:                decimal.NewFromFloat(3.00),
-			FeeAccountAlias:          "@platform/mdr_revenue",
+			FeeAccountAlias:          "@merchant/receivables/mdr_revenue",
 			SourceAccountAlias:       "@external/acquirer_sumup",
 			DestinationAccountAlias:  "@merchant/receivables",
 		}

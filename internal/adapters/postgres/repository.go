@@ -36,9 +36,12 @@ func (r *Repository) CreateReceivablesAccount(ctx context.Context, account *doma
 	account.CreatedAt = now
 	account.UpdatedAt = now
 
-	var motherAliasVal, feeAliasVal, matcherCtxVal *string
+	var motherAliasVal, mdrAliasVal, feeAliasVal, matcherCtxVal *string
 	if account.MotherAccountAlias != "" {
 		motherAliasVal = &account.MotherAccountAlias
+	}
+	if account.MDRRevenueAccountAlias != "" {
+		mdrAliasVal = &account.MDRRevenueAccountAlias
 	}
 	if account.FeeAccountAlias != "" {
 		feeAliasVal = &account.FeeAccountAlias
@@ -50,14 +53,14 @@ func (r *Repository) CreateReceivablesAccount(ctx context.Context, account *doma
 	query := `
 		INSERT INTO receivables_accounts (
 			id, organization_id, ledger_id, midaz_account_id, parent_account_id,
-			mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+			mother_account_alias, account_alias, mdr_revenue_account_alias, fee_account_alias, checking_account_alias,
 			matcher_context_id, name, status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
 		account.ID, account.OrganizationID, account.LedgerID, account.MidazAccountID, account.ParentAccountID,
-		motherAliasVal, account.AccountAlias, feeAliasVal, account.CheckingAccountAlias,
+		motherAliasVal, account.AccountAlias, mdrAliasVal, feeAliasVal, account.CheckingAccountAlias,
 		matcherCtxVal, account.Name, account.Status, account.CreatedAt, account.UpdatedAt,
 	)
 	if err != nil {
@@ -71,18 +74,18 @@ func (r *Repository) CreateReceivablesAccount(ctx context.Context, account *doma
 func (r *Repository) FindReceivablesAccountByID(ctx context.Context, id string) (*domain.ReceivablesAccount, error) {
 	query := `
 		SELECT id, organization_id, ledger_id, midaz_account_id, parent_account_id,
-		       mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+		       mother_account_alias, account_alias, mdr_revenue_account_alias, fee_account_alias, checking_account_alias,
 		       matcher_context_id, name, status, created_at, updated_at
 		FROM receivables_accounts
 		WHERE id = $1
 	`
 
 	var acc domain.ReceivablesAccount
-	var parentID, motherAlias, feeAlias, matcherCtx sql.NullString
+	var parentID, motherAlias, mdrAlias, feeAlias, matcherCtx sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID, &parentID,
-		&motherAlias, &acc.AccountAlias, &feeAlias, &acc.CheckingAccountAlias,
+		&motherAlias, &acc.AccountAlias, &mdrAlias, &feeAlias, &acc.CheckingAccountAlias,
 		&matcherCtx, &acc.Name, &acc.Status, &acc.CreatedAt, &acc.UpdatedAt,
 	)
 	if err != nil {
@@ -98,6 +101,9 @@ func (r *Repository) FindReceivablesAccountByID(ctx context.Context, id string) 
 	if motherAlias.Valid {
 		acc.MotherAccountAlias = motherAlias.String
 	}
+	if mdrAlias.Valid {
+		acc.MDRRevenueAccountAlias = mdrAlias.String
+	}
 	if feeAlias.Valid {
 		acc.FeeAccountAlias = feeAlias.String
 	}
@@ -112,18 +118,18 @@ func (r *Repository) FindReceivablesAccountByID(ctx context.Context, id string) 
 func (r *Repository) FindReceivablesAccountByAlias(ctx context.Context, alias string) (*domain.ReceivablesAccount, error) {
 	query := `
 		SELECT id, organization_id, ledger_id, midaz_account_id, parent_account_id,
-		       mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+		       mother_account_alias, account_alias, mdr_revenue_account_alias, fee_account_alias, checking_account_alias,
 		       matcher_context_id, name, status, created_at, updated_at
 		FROM receivables_accounts
 		WHERE account_alias = $1
 	`
 
 	var acc domain.ReceivablesAccount
-	var parentID, motherAlias, feeAlias, matcherCtx sql.NullString
+	var parentID, motherAlias, mdrAlias, feeAlias, matcherCtx sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, alias).Scan(
 		&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID, &parentID,
-		&motherAlias, &acc.AccountAlias, &feeAlias, &acc.CheckingAccountAlias,
+		&motherAlias, &acc.AccountAlias, &mdrAlias, &feeAlias, &acc.CheckingAccountAlias,
 		&matcherCtx, &acc.Name, &acc.Status, &acc.CreatedAt, &acc.UpdatedAt,
 	)
 	if err != nil {
@@ -139,6 +145,9 @@ func (r *Repository) FindReceivablesAccountByAlias(ctx context.Context, alias st
 	if motherAlias.Valid {
 		acc.MotherAccountAlias = motherAlias.String
 	}
+	if mdrAlias.Valid {
+		acc.MDRRevenueAccountAlias = mdrAlias.String
+	}
 	if feeAlias.Valid {
 		acc.FeeAccountAlias = feeAlias.String
 	}
@@ -153,7 +162,7 @@ func (r *Repository) FindReceivablesAccountByAlias(ctx context.Context, alias st
 func (r *Repository) ListReceivablesAccounts(ctx context.Context) ([]domain.ReceivablesAccount, error) {
 	query := `
 		SELECT id, organization_id, ledger_id, midaz_account_id, parent_account_id,
-		       mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+		       mother_account_alias, account_alias, mdr_revenue_account_alias, fee_account_alias, checking_account_alias,
 		       matcher_context_id, name, status, created_at, updated_at
 		FROM receivables_accounts
 		ORDER BY created_at DESC
@@ -168,11 +177,11 @@ func (r *Repository) ListReceivablesAccounts(ctx context.Context) ([]domain.Rece
 	var accounts []domain.ReceivablesAccount
 	for rows.Next() {
 		var acc domain.ReceivablesAccount
-		var parentID, motherAlias, feeAlias, matcherCtx sql.NullString
+		var parentID, motherAlias, mdrAlias, feeAlias, matcherCtx sql.NullString
 
 		if err := rows.Scan(
 			&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID, &parentID,
-			&motherAlias, &acc.AccountAlias, &feeAlias, &acc.CheckingAccountAlias,
+			&motherAlias, &acc.AccountAlias, &mdrAlias, &feeAlias, &acc.CheckingAccountAlias,
 			&matcherCtx, &acc.Name, &acc.Status, &acc.CreatedAt, &acc.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("repository: failed to scan account row: %w", err)
@@ -183,6 +192,9 @@ func (r *Repository) ListReceivablesAccounts(ctx context.Context) ([]domain.Rece
 		}
 		if motherAlias.Valid {
 			acc.MotherAccountAlias = motherAlias.String
+		}
+		if mdrAlias.Valid {
+			acc.MDRRevenueAccountAlias = mdrAlias.String
 		}
 		if feeAlias.Valid {
 			acc.FeeAccountAlias = feeAlias.String

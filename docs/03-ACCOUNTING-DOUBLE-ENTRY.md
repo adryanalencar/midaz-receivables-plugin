@@ -31,7 +31,7 @@ To guarantee strict tenant isolation, multi-CNPJ segregation, and avoid Midaz ba
            │
            ▼ (Step 2: Pending Allocation: pending = true)
            │── (Net Claim: Pending Credit) ───► [@merchant_alpha/receivables] (Subaccount: Future Claims)
-           └── (Platform MDR Fee Credit) ─────► [@platform/mdr_revenue] (Platform Operational Revenue)
+           └── (Merchant MDR Fee Credit) ─────► [@merchant_alpha/receivables/mdr_revenue] (MDR Revenue Subaccount)
                                                                 │
                                                                 ▼ (D+X Matcher 6 Approval + Multi-Leg Transfer)
                                                     [@merchant_alpha/bank_sicredi] (Mirrored Bank Subaccount)
@@ -56,10 +56,14 @@ To guarantee strict tenant isolation, multi-CNPJ segregation, and avoid Midaz ba
 4. **Merchant Receivables Subaccount (`@<merchant>/receivables`)**:
    - `parentAccountId = merchant_alpha.id`
    - Holds the merchant's unsettled, accrued credit rights across all bound acquirer connections.
-5. **Merchant Tariff & Deductions Subaccount (`@<merchant>/receivables/fees`)**:
-   - `parentAccountId = merchant_alpha.id`
+5. **Merchant MDR Revenue Subaccount (`@<merchant>/receivables/mdr_revenue`)**:
+   - `parentAccountId = merchant_alpha.receivables.id`
+   - `type: "revenue"`
+   - Receives the MDR discount per installment on $D+0$ capture, segregated by merchant to preserve alias uniqueness and ensure multi-tenant reporting.
+6. **Merchant Tariff & Deductions Subaccount (`@<merchant>/receivables/fees`)**:
+   - `parentAccountId = merchant_alpha.receivables.id`
    - Absorbs settlement deductions (e.g., POS terminal rentals, chargebacks, anticipation fees).
-6. **Mirrored Bank Subaccount (`@<merchant>/bank_<name>`)**:
+7. **Mirrored Bank Subaccount (`@<merchant>/bank_<name>`)**:
    - `parentAccountId = merchant_alpha.id`
    - Mirrors bank statements via Open Finance (e.g., Sicredi, Itaú).
 
@@ -116,7 +120,7 @@ To guarantee strict tenant isolation, multi-CNPJ segregation, and avoid Midaz ba
     "distribute": {
       "to": [
         { "accountAlias": "@merchant_alpha/receivables", "amount": { "asset": "BRL", "value": "97.00" } },
-        { "accountAlias": "@platform/mdr_revenue", "amount": { "asset": "BRL", "value": "3.00" } }
+        { "accountAlias": "@merchant_alpha/receivables/mdr_revenue", "amount": { "asset": "BRL", "value": "3.00" } }
       ]
     }
   }

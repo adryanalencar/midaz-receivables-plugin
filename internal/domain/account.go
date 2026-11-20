@@ -13,9 +13,10 @@ type ReceivablesAccount struct {
 	MidazAccountID       string    `json:"midazAccountId"`
 	ParentAccountID      *string   `json:"parentAccountId,omitempty"`      // UUID of the Mother Account in Midaz
 	MotherAccountAlias   string    `json:"motherAccountAlias,omitempty"`   // e.g. "@merchant_alpha"
-	AccountAlias         string    `json:"accountAlias"`                   // e.g. "@merchant_alpha/receivables"
-	FeeAccountAlias      string    `json:"feeAccountAlias,omitempty"`      // Subaccount for tariffs/fees: "@merchant_alpha/receivables/fees"
-	CheckingAccountAlias string    `json:"checkingAccountAlias"`           // Default checking/openfinance alias
+	AccountAlias           string    `json:"accountAlias"`                     // e.g. "@merchant_alpha/receivables"
+	MDRRevenueAccountAlias string    `json:"mdrRevenueAccountAlias,omitempty"` // Subaccount for MDR: "@merchant_alpha/receivables/mdr_revenue"
+	FeeAccountAlias        string    `json:"feeAccountAlias,omitempty"`        // Subaccount for tariffs/fees: "@merchant_alpha/receivables/fees"
+	CheckingAccountAlias   string    `json:"checkingAccountAlias"`             // Default checking/openfinance alias
 	MatcherContextID     string    `json:"matcherContextId,omitempty"`     // Dedicated Context ID in Matcher 6 for this tenant
 	Name                 string    `json:"name"`
 	Status               string    `json:"status"`                         // "ACTIVE", "INACTIVE"
