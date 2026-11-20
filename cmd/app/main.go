@@ -83,8 +83,9 @@ func main() {
 		}
 	}
 
-	// 9. Matcher 6 Reconciliation Client
+	// 9. Matcher 6 Reconciliation Client & Open Finance Internal Client
 	matcherClient := httpOut.NewMatcherClient(cfg, nil)
+	openFinanceClient := httpOut.NewOpenFinanceClient(cfg, nil)
 
 	// 10. CQRS Command & Query Handlers
 	var createAccountHandler *command.CreateReceivablesAccountHandler
@@ -96,9 +97,9 @@ func main() {
 	var matcherWorker *workers.MatcherUploadWorker
 
 	if repo != nil {
-		createAccountHandler = command.NewCreateReceivablesAccountHandler(repo, midazClient)
+		createAccountHandler = command.NewCreateReceivablesAccountHandler(repo, midazClient, matcherClient)
 		ingestSaleHandler = command.NewIngestAcquirerSaleHandler(repo, midazClient)
-		settleMatchedHandler = command.NewSettleMatchedReceivableHandler(repo, midazClient)
+		settleMatchedHandler = command.NewSettleMatchedReceivableHandler(repo, midazClient).WithOpenFinanceNotifier(openFinanceClient)
 		uploadMatcherHandler = command.NewUploadReceivablesToMatcherHandler(repo, matcherClient)
 		calendarHandler = query.NewGetCalendarHandler(repo)
 

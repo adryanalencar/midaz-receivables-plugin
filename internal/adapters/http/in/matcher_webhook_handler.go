@@ -7,6 +7,7 @@ import (
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/domain"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/services/command"
 	"github.com/gofiber/fiber/v2"
+	"github.com/shopspring/decimal"
 )
 
 type MatcherWebhookHandler struct {
@@ -33,35 +34,64 @@ func (h *MatcherWebhookHandler) HandleMatcherWebhook(c *fiber.Ctx) error {
 		})
 	}
 
-	settledCount := 0
+	if h.settleMatchedHandler == nil {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"status": "acknowledged",
+		})
+	}
+
+	// Group matches by SourceBRecordID (the bank statement deposit line) to support N:1 batch settlements
+	groups := make(map[string][]command.MatchedReceivableItem)
+	groupDates := make(map[string]time.Time)
+	groupAmounts := make(map[string]decimal.Decimal)
+
 	for _, match := range payload.Matches {
-		settleDate := match.SettlementDate
+		bankTxID := match.SourceBRecordID
+		if bankTxID == "" {
+			bankTxID = match.MatchID
+		}
+
+		groups[bankTxID] = append(groups[bankTxID], command.MatchedReceivableItem{
+			SourceARecordID: match.SourceARecordID,
+			Amount:          match.SettlementAmount,
+		})
+
+		if !match.SettlementDate.IsZero() {
+			groupDates[bankTxID] = match.SettlementDate
+		}
+
+		currTotal := groupAmounts[bankTxID]
+		groupAmounts[bankTxID] = currTotal.Add(match.SettlementAmount)
+	}
+
+	settledGroups := 0
+	for bankTxID, items := range groups {
+		settleDate := groupDates[bankTxID]
 		if settleDate.IsZero() {
 			settleDate = time.Now().UTC()
 		}
 
 		input := command.SettleMatchedReceivableInput{
-			OrganizationID:  h.cfg.MidazOrganizationID,
-			LedgerID:        h.cfg.MidazLedgerID,
-			MatchID:         match.MatchID,
-			SourceARecordID: match.SourceARecordID,
-			SourceBRecordID: match.SourceBRecordID,
-			SettledAmount:   match.SettlementAmount,
-			SettlementDate:  settleDate,
-			MatcherRunID:    payload.RunID,
+			OrganizationID:     h.cfg.MidazOrganizationID,
+			LedgerID:           h.cfg.MidazLedgerID,
+			MatchID:            payload.RunID,
+			MatcherRunID:       payload.RunID,
+			BankTransactionID:  bankTxID,
+			TotalDepositAmount: groupAmounts[bankTxID],
+			SettlementDate:     settleDate,
+			Items:              items,
 		}
 
 		if err := h.settleMatchedHandler.Execute(c.Context(), input); err != nil {
-			// Log error and continue with remaining matches
 			continue
 		}
-		settledCount++
+		settledGroups++
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"status":          "processed",
 		"run_id":          payload.RunID,
 		"matches_total":   len(payload.Matches),
-		"matches_settled": settledCount,
+		"deposits_settled": settledGroups,
 	})
 }

@@ -38,6 +38,7 @@ type IReceivablesRepository interface {
 	FindInstallmentByReceivableCode(ctx context.Context, acquirer AcquirerType, nsu string, installmentNumber int) (*Installment, error)
 	ListPendingInstallmentsForMatcher(ctx context.Context, windowStart, windowEnd time.Time, limit int) ([]Installment, error)
 	MarkInstallmentUploadedToMatcher(ctx context.Context, installmentID, matcherRecordID string) error
+	UpdateInstallmentReceivableTxID(ctx context.Context, installmentID, txID string) error
 	MarkInstallmentReconciled(ctx context.Context, installmentID, midazSettlementTxID, matcherRunID string, settlementDate time.Time) error
 	GetReceivablesCalendar(ctx context.Context, filter CalendarFilter) ([]Installment, error)
 }

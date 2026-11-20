@@ -102,6 +102,11 @@ func (m *MockRepository) MarkInstallmentUploadedToMatcher(ctx context.Context, i
 	return args.Error(0)
 }
 
+func (m *MockRepository) UpdateInstallmentReceivableTxID(ctx context.Context, installmentID, txID string) error {
+	args := m.Called(ctx, installmentID, txID)
+	return args.Error(0)
+}
+
 func (m *MockRepository) MarkInstallmentReconciled(ctx context.Context, installmentID, midazSettlementTxID, matcherRunID string, settlementDate time.Time) error {
 	args := m.Called(ctx, installmentID, midazSettlementTxID, matcherRunID, settlementDate)
 	return args.Error(0)
@@ -135,4 +140,44 @@ func (m *MockMatcherClient) HealthCheck(ctx context.Context) error {
 	args := m.Called(ctx)
 	return args.Error(0)
 }
+
+type MockMidazClient struct {
+	mock.Mock
+}
+
+func (m *MockMidazClient) EnsureClearingAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, acquirer)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockMidazClient) EnsureAcquirerInternalAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, acquirer)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockMidazClient) CreateAccount(ctx context.Context, organizationID, ledgerID, alias, name, accountType string, parentAccountID *string) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, alias, name, accountType, parentAccountID)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockMidazClient) CheckAccountExists(ctx context.Context, organizationID, ledgerID, alias string) (bool, error) {
+	args := m.Called(ctx, organizationID, ledgerID, alias)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockMidazClient) PostTransaction(ctx context.Context, organizationID, ledgerID string, tx *domain.MidazTransactionPayload) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, tx)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockMidazClient) CommitTransaction(ctx context.Context, organizationID, ledgerID, transactionID string) error {
+	args := m.Called(ctx, organizationID, ledgerID, transactionID)
+	return args.Error(0)
+}
+
+func (m *MockMidazClient) PostMultiSourceTransaction(ctx context.Context, organizationID, ledgerID string, tx *domain.MultiSourceTransactionPayload) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, tx)
+	return args.String(0), args.Error(1)
+}
+
 

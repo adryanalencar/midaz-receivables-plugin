@@ -41,6 +41,9 @@ type Config struct {
 	MatcherWebhookSecret    string `env:"MATCHER_WEBHOOK_SECRET" default:"secret_matcher_local_123"`
 	MatcherUploadWindowDays int    `env:"MATCHER_UPLOAD_WINDOW_DAYS" default:"7"`
 
+	// Inter-Plugin Integration (Open Finance Plugin :8085)
+	OpenFinancePluginURL string `env:"OPENFINANCE_PLUGIN_URL" default:"http://localhost:8085"`
+
 	// Worker Schedule Settings
 	SyncIntervalMinutes int `env:"SYNC_INTERVAL_MINUTES" default:"60"`
 	WorkerBatchLimit    int `env:"WORKER_BATCH_LIMIT" default:"500"`

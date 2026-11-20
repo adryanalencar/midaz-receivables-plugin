@@ -79,12 +79,43 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 		return fmt.Errorf("ingest_acquirer_sale: failed saving sale and installments: %w", err)
 	}
 
-	// 3. Post D+0 double-entry transaction in Midaz for each installment
-	clearingAlias := fmt.Sprintf("@external/acquirer_%s", strings.ToLower(string(sale.Acquirer)))
+	// 3. Post D+0 two-step double-entry in Midaz for each installment:
+	//    Step A: Fund the internal acquirer account from universal external fiat (immediate)
+	//    Step B: Allocate from internal acquirer account to receivables account as PENDING (on-hold)
+	universalClearingAlias := domain.UniversalFiatClearingAccount
+	acquirerInternalAlias := domain.AcquirerInternalAccountAlias(sale.Acquirer)
 
 	for i := range sale.Installments {
 		inst := &sale.Installments[i]
 		code := inst.DeterministicReceivableCode()
+		fundingCode := fmt.Sprintf("FUND-%s-%s-%d", sale.Acquirer, sale.NSU, inst.InstallmentNumber)
+
+		// Step A: Immediate Funding to Internal Acquirer Account
+		fundTx := &domain.MidazTransactionPayload{
+			ChartOfAccountsGroupName: "ACQUIRER_FUNDING",
+			Description: fmt.Sprintf("Funding %s Acquirer Liquidity for Sale NSU %s (Installment %d/%d)",
+				sale.Acquirer, sale.NSU, inst.InstallmentNumber, sale.InstallmentsCount),
+			Code:                    fundingCode,
+			Amount:                  inst.GrossAmount,
+			SourceAccountAlias:      universalClearingAlias,
+			DestinationAccountAlias: acquirerInternalAlias,
+			Pending:                 false,
+			Metadata: map[string]any{
+				"acquirer":           string(sale.Acquirer),
+				"nsu":                sale.NSU,
+				"installment_number": inst.InstallmentNumber,
+			},
+		}
+
+		if _, err := h.midazClient.PostTransaction(ctx, input.OrganizationID, input.LedgerID, fundTx); err != nil {
+			return fmt.Errorf("ingest_acquirer_sale: failed posting funding transaction for installment %d: %w", inst.InstallmentNumber, err)
+		}
+
+		// Step B: Post Pending Transaction from internal acquirer account (puts funds on-hold in @acquirer/<name>)
+		mdrAccountAlias := acc.MDRRevenueAccountAlias
+		if mdrAccountAlias == "" {
+			mdrAccountAlias = acc.AccountAlias + "/mdr_revenue"
+		}
 
 		metadata := map[string]any{
 			"acquirer":                 string(sale.Acquirer),
@@ -98,6 +129,8 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 			"mdr_fee":                  inst.MDRFee.StringFixed(2),
 			"net_amount":               inst.NetAmount.StringFixed(2),
 			"expected_settlement_date": inst.ExpectedSettlementDate.Format("2006-01-02"),
+			"reason":                   "mdr_discount",
+			"charged_by":               string(sale.Acquirer),
 		}
 
 		tx := &domain.MidazTransactionPayload{
@@ -107,15 +140,20 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 			Code:                    code,
 			Amount:                  inst.GrossAmount,
 			FeeAmount:               inst.MDRFee,
-			FeeAccountAlias:         "@platform/mdr_revenue",
-			SourceAccountAlias:      clearingAlias,
+			FeeAccountAlias:         mdrAccountAlias,
+			SourceAccountAlias:      acquirerInternalAlias,
 			DestinationAccountAlias: acc.AccountAlias,
+			Pending:                 true,
 			Metadata:                metadata,
 		}
 
-		if _, err := h.midazClient.PostTransaction(ctx, input.OrganizationID, input.LedgerID, tx); err != nil {
-			return fmt.Errorf("ingest_acquirer_sale: failed posting D+0 transaction for installment %d: %w", inst.InstallmentNumber, err)
+		txID, err := h.midazClient.PostTransaction(ctx, input.OrganizationID, input.LedgerID, tx)
+		if err != nil {
+			return fmt.Errorf("ingest_acquirer_sale: failed posting D+0 pending transaction for installment %d: %w", inst.InstallmentNumber, err)
 		}
+
+		inst.MidazReceivableTxID = &txID
+		_ = h.repo.UpdateInstallmentReceivableTxID(ctx, inst.ID, txID)
 	}
 
 	return nil
