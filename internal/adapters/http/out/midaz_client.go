@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
@@ -32,20 +31,36 @@ func NewMidazClient(cfg *bootstrap.Config, httpClient *http.Client) *MidazClient
 	}
 }
 
-// EnsureClearingAccount verifies or provisions the universal @external/acquirer_<name> account in Midaz.
+// EnsureClearingAccount verifies or provisions the universal @external/BRL:universal account in Midaz.
 func (c *MidazClient) EnsureClearingAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
-	alias := fmt.Sprintf("@external/acquirer_%s", strings.ToLower(string(acquirer)))
+	alias := domain.UniversalFiatClearingAccount
 
 	exists, err := c.CheckAccountExists(ctx, organizationID, ledgerID, alias)
 	if err != nil {
-		return "", fmt.Errorf("midaz: failed checking clearing account: %w", err)
+		return "", fmt.Errorf("midaz: failed checking universal clearing account: %w", err)
 	}
 	if exists {
 		return alias, nil
 	}
 
-	name := fmt.Sprintf("Universal Clearing - %s", acquirer)
-	return c.CreateAccount(ctx, organizationID, ledgerID, alias, name, "external")
+	name := "Universal Fiat External Account"
+	return c.CreateAccount(ctx, organizationID, ledgerID, alias, name, "external", nil)
+}
+
+// EnsureAcquirerInternalAccount verifies or provisions the internal liquidity account (e.g. @acquirer/sumup) in Midaz.
+func (c *MidazClient) EnsureAcquirerInternalAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
+	alias := domain.AcquirerInternalAccountAlias(acquirer)
+
+	exists, err := c.CheckAccountExists(ctx, organizationID, ledgerID, alias)
+	if err != nil {
+		return "", fmt.Errorf("midaz: failed checking acquirer internal account: %w", err)
+	}
+	if exists {
+		return alias, nil
+	}
+
+	name := fmt.Sprintf("%s Acquirer Liquidity Account", acquirer)
+	return c.CreateAccount(ctx, organizationID, ledgerID, alias, name, "deposit", nil)
 }
 
 // CheckAccountExists verifies whether an account alias is registered in Midaz.
@@ -76,8 +91,8 @@ func (c *MidazClient) CheckAccountExists(ctx context.Context, organizationID, le
 	return false, fmt.Errorf("midaz: unexpected check account status HTTP %d: %s", resp.StatusCode, string(body))
 }
 
-// CreateAccount provisions an account in Midaz.
-func (c *MidazClient) CreateAccount(ctx context.Context, organizationID, ledgerID, alias, name, accountType string) (string, error) {
+// CreateAccount provisions an account in Midaz, supporting native parentAccountId hierarchy.
+func (c *MidazClient) CreateAccount(ctx context.Context, organizationID, ledgerID, alias, name, accountType string, parentAccountID *string) (string, error) {
 	url := fmt.Sprintf("%s/v1/organizations/%s/ledgers/%s/accounts",
 		c.cfg.MidazOnboardingURL, organizationID, ledgerID)
 
@@ -89,6 +104,9 @@ func (c *MidazClient) CreateAccount(ctx context.Context, organizationID, ledgerI
 		"metadata": map[string]string{
 			"source": "midaz-plugin-receivables",
 		},
+	}
+	if parentAccountID != nil && *parentAccountID != "" {
+		payload["parentAccountId"] = *parentAccountID
 	}
 
 	bodyBytes, err := json.Marshal(payload)
@@ -297,15 +315,30 @@ func (c *MidazClient) PostMultiSourceTransaction(ctx context.Context, organizati
 		}
 	}
 
-	toLegs := []map[string]any{
-		{
-			"accountAlias": tx.DestinationAccountAlias,
+	toLegs := make([]map[string]any, 0, 1+len(tx.Deductions))
+	primaryAmount := tx.TotalAmount
+	for _, ded := range tx.Deductions {
+		primaryAmount = primaryAmount.Sub(ded.Amount)
+	}
+
+	toLegs = append(toLegs, map[string]any{
+		"accountAlias": tx.DestinationAccountAlias,
+		"amount": map[string]any{
+			"asset": asset,
+			"value": primaryAmount.StringFixed(2),
+		},
+		"description": tx.Description,
+	})
+
+	for _, ded := range tx.Deductions {
+		toLegs = append(toLegs, map[string]any{
+			"accountAlias": ded.AccountAlias,
 			"amount": map[string]any{
 				"asset": asset,
-				"value": tx.TotalAmount.StringFixed(2),
+				"value": ded.Amount.StringFixed(2),
 			},
-			"description": tx.Description,
-		},
+			"description": ded.Description,
+		})
 	}
 
 	payload := map[string]any{

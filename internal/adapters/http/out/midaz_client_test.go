@@ -50,7 +50,7 @@ func TestMidazClient_CheckAccountExists(t *testing.T) {
 }
 
 func TestMidazClient_EnsureClearingAccount(t *testing.T) {
-	t.Run("Already exists", func(t *testing.T) {
+	t.Run("Universal External Clearing Already exists", func(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
 				w.WriteHeader(http.StatusOK)
@@ -67,10 +67,10 @@ func TestMidazClient_EnsureClearingAccount(t *testing.T) {
 
 		alias, err := client.EnsureClearingAccount(context.Background(), "org_1", "led_1", domain.AcquirerSumUp)
 		require.NoError(t, err)
-		assert.Equal(t, "@external/acquirer_sumup", alias)
+		assert.Equal(t, domain.UniversalFiatClearingAccount, alias)
 	})
 
-	t.Run("Creates when missing", func(t *testing.T) {
+	t.Run("Acquirer Internal Liquidity Account Creation", func(t *testing.T) {
 		step := 0
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet && step == 0 {
@@ -91,9 +91,9 @@ func TestMidazClient_EnsureClearingAccount(t *testing.T) {
 		}
 		client := NewMidazClient(cfg, ts.Client())
 
-		alias, err := client.EnsureClearingAccount(context.Background(), "org_1", "led_1", domain.AcquirerPagBank)
+		alias, err := client.EnsureAcquirerInternalAccount(context.Background(), "org_1", "led_1", domain.AcquirerSumUp)
 		require.NoError(t, err)
-		assert.Equal(t, "@external/acquirer_pagbank", alias)
+		assert.Equal(t, "@acquirer/sumup", alias)
 	})
 }
 

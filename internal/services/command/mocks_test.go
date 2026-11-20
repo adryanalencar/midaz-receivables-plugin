@@ -150,8 +150,13 @@ func (m *MockMidazClient) EnsureClearingAccount(ctx context.Context, organizatio
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockMidazClient) CreateAccount(ctx context.Context, organizationID, ledgerID, alias, name, accountType string) (string, error) {
-	args := m.Called(ctx, organizationID, ledgerID, alias, name, accountType)
+func (m *MockMidazClient) EnsureAcquirerInternalAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, acquirer)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockMidazClient) CreateAccount(ctx context.Context, organizationID, ledgerID, alias, name, accountType string, parentAccountID *string) (string, error) {
+	args := m.Called(ctx, organizationID, ledgerID, alias, name, accountType, parentAccountID)
 	return args.String(0), args.Error(1)
 }
 

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -16,6 +18,14 @@ const (
 
 func (a AcquirerType) String() string {
 	return string(a)
+}
+
+// UniversalFiatClearingAccount represents the external fiat origin for funding internal acquirer liquidity.
+const UniversalFiatClearingAccount = "@external/BRL:universal"
+
+// AcquirerInternalAccountAlias returns the internal liquidity account alias for an acquirer (e.g. "@acquirer/sumup").
+func AcquirerInternalAccountAlias(acquirer AcquirerType) string {
+	return fmt.Sprintf("@acquirer/%s", strings.ToLower(string(acquirer)))
 }
 
 // AcquirerProvider defines the contract required for any payment acquirer adapter.

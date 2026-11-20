@@ -8,64 +8,90 @@ $$\sum \text{Debits} - \sum \text{Credits} = 0$$
 In financial systems, **Credit Card Receivables** are accrued financial assets representing future claims against a card acquirer (e.g., SumUp, PagBank). They cannot be credited directly into a merchant's liquid bank account upon capture without inflating the money supply and distorting ledger invariants.
 
 Furthermore, future receivables are inherently **unsettled commitments**:
-- On sale capture ($D+0$), the claim is recorded in Midaz with **`pending: true`**, preserving full auditability of the future schedule without releasing available spendable balance.
+- On sale capture ($D+0$), the claim is recorded in Midaz with **`pending: true`**, placing funds on hold in the acquirer's internal liquidity account without releasing spendable liquid balance.
 - On settlement ($D+X$), once bank statement credits are conciliated via **Matcher 6**, two actions occur atomically:
-  1. The pending transactions in the receivables account are committed (`POST .../transactions/{id}/commit`), actualizing the credit in `@<merchant>/receivables`.
-  2. An **atomic $N:1$ multi-source transfer** moves the funds from `@<merchant>/receivables` into the merchant's mirrored bank account (`@<merchant>/openfinance`), with each source leg reflecting its respective installment claim.
+  1. The pending transactions in the acquirer account are committed (`POST .../transactions/{id}/commit`), actualizing the credit in `@<merchant>/receivables`.
+  2. An **atomic $N:M$ multi-leg transfer** moves the funds from `@<merchant>/receivables` into the merchant's mirrored bank account (`@<merchant>/bank_<name>`), routing any fee deductions (e.g., machine rental) to `@<merchant>/receivables/fees`.
+  3. An internal acknowledgment notification is dispatched to `plugin-openfinance` to mark the bank transaction as processed.
 
 ---
 
-## 2. Account Topology
+## 2. Account Hierarchy & Subaccount Topology
 
-The plugin designs a multi-tiered account hierarchy within the target Midaz Ledger:
+To guarantee strict tenant isolation, multi-CNPJ segregation, and avoid Midaz balance restrictions (`ErrOnHoldExternalAccount` - Code 0098), the architecture structures accounts as follows:
 
 ```
-[External Acquirer Universe]
-            │
-            ▼ (D+0 Pending Sale Ingestion: pending: true)
-[@external/acquirer_sumup] (Universal External Clearing Account)
-            │
-            ├── (Net Claim: Pending Credit) ───────► [@merchant_alpha/receivables] (Asset: Future Claim on Acquirer)
-            └── (Platform Fee Credit) ─────────────► [@platform/mdr_revenue] (Platform Operational Revenue)
+[Universal Fiat Universe]
+           │
+           ▼ (Step 1: Immediate Influx Funding)
+[@external/BRL:universal] (Universal External Fiat Account)
+           │
+           ▼
+[@acquirer/sumup] (Internal Liquidity Account: type = deposit)
+           │
+           ▼ (Step 2: Pending Allocation: pending = true)
+           │── (Net Claim: Pending Credit) ───► [@merchant_alpha/receivables] (Subaccount: Future Claims)
+           └── (Platform MDR Fee Credit) ─────► [@platform/mdr_revenue] (Platform Operational Revenue)
                                                                 │
-                                                                ▼ (D+X Matcher 6 Approval + Multi-Source Transfer)
-                                                    [@merchant_alpha/openfinance] (Mirrored Bank Account)
-                                                                ▲
-                                                                │ (Non-card generic bank deposits)
-                                                    [@external/BRL:openfinance]
+                                                                ▼ (D+X Matcher 6 Approval + Multi-Leg Transfer)
+                                                    [@merchant_alpha/bank_sicredi] (Mirrored Bank Subaccount)
+                                                                │
+                                                                ├── (Optional Deductions: Aluguel Maquininha)
+                                                                ▼
+                                                    [@merchant_alpha/receivables/fees] (Tariff Subaccount)
 ```
 
-### Account Hierarchy Definitions:
-1. **Universal Acquirer Clearing Account (`@external/acquirer_<name>`)**:
+### Account Definitions:
+1. **Universal External Fiat Account (`@external/BRL:universal`)**:
    - `type: "external"`
    - Permitted by Midaz to hold negative balances.
-   - Represents the gross aggregated claims owed by the card acquirer to our platform.
-2. **Merchant Receivables Account (`@<alias>/receivables`)**:
-   - `type: "asset"`
+   - Injects gross liquidity into internal acquirer accounts upon sale ingestion.
+2. **Internal Acquirer Liquidity Accounts (`@acquirer/<name>`)**:
+   - `type: "deposit"` (Internal account, NOT external).
+   - Allows Midaz to safely place funds `on_hold` when `pending: true` without triggering Error 0098.
+   - **Operational Metric:** The `on_hold` balance of `@acquirer/sumup` represents the exact total gross volume of future receivables currently floating across all clients.
+3. **Mother Account (Master CNPJ Profile: `@<merchant>`)**:
+   - Master account in Midaz (e.g. `@merchant_alpha`).
+   - Mapped 1:1 to a dedicated **Tenant / Context in Matcher 6**.
+4. **Merchant Receivables Subaccount (`@<merchant>/receivables`)**:
+   - `parentAccountId = merchant_alpha.id`
    - Holds the merchant's unsettled, accrued credit rights across all bound acquirer connections.
-   - Installments are initially posted as `pending: true` and committed upon settlement confirmation.
-3. **Mirrored Bank Account (`@<alias>/openfinance`)**:
-   - `type: "liability"` (from the ledger's perspective: mirrored checking balance from Open Finance).
-   - Receives funds either from `@<alias>/receivables` (when reconciled against acquirer receivables) or from `@external/BRL:openfinance` (for generic external deposits).
-4. **Platform Fee Account (`@platform/mdr_revenue`)**:
-   - `type: "revenue"`
-   - Records the platform's spread/commission on card transactions.
+5. **Merchant Tariff & Deductions Subaccount (`@<merchant>/receivables/fees`)**:
+   - `parentAccountId = merchant_alpha.id`
+   - Absorbs settlement deductions (e.g., POS terminal rentals, chargebacks, anticipation fees).
+6. **Mirrored Bank Subaccount (`@<merchant>/bank_<name>`)**:
+   - `parentAccountId = merchant_alpha.id`
+   - Mirrors bank statements via Open Finance (e.g., Sicredi, Itaú).
 
 ---
 
 ## 3. The 3-Phase Accounting Lifecycle
 
-### Phase 1: Sale Ingestion & Agenda Booking ($D+0$ Pending Transactions)
+### Phase 1: Sale Ingestion & Agenda Booking ($D+0$ Two-Step Sequence)
 * **Real-world event:** A customer purchases R$ 300.00 in 3 installments at Merchant Alpha via SumUp.
 * **Acquirer MDR fee:** 3.00% (R$ 9.00 total, R$ 3.00 per installment).
 * **Net amount to merchant:** R$ 291.00 (R$ 97.00 per installment).
-* **Midaz Ledger Entry (Per Installment, with `"pending": true`):**
-  - **Debit:** `@external/acquirer_sumup` $\rightarrow$ R$ 100.00 (Gross claim against SumUp).
-  - **Credit (Pending):** `@merchant_alpha/receivables` $\rightarrow$ R$ 97.00 (Net merchant receivable, on-hold).
-  - **Credit:** `@platform/mdr_revenue` $\rightarrow$ R$ 3.00 (Fee retained).
-* **Captured Identifier:** The plugin stores the resulting `midaz_receivable_tx_id` in `receivables_installments` for later commitment.
 
-#### Midaz Transaction Payload ($D+0$, Pending):
+#### Step 1: Influx Funding (Immediate)
+```json
+{
+  "chartOfAccountsGroupName": "ACQUIRER_FUNDING",
+  "description": "Funding SumUp Acquirer Liquidity for Sale NSU 987654321 (Installment 1/3)",
+  "code": "FUND-SUMUP-987654321-1",
+  "send": {
+    "asset": "BRL",
+    "value": "100.00",
+    "source": {
+      "from": [{ "accountAlias": "@external/BRL:universal", "amount": { "asset": "BRL", "value": "100.00" } }]
+    },
+    "distribute": {
+      "to": [{ "accountAlias": "@acquirer/sumup", "amount": { "asset": "BRL", "value": "100.00" } }]
+    }
+  }
+}
+```
+
+#### Step 2: Agenda Booking (Pending: true)
 ```json
 {
   "chartOfAccountsGroupName": "ACQUIRER_RECEIVABLES",
@@ -74,11 +100,8 @@ The plugin designs a multi-tiered account hierarchy within the target Midaz Ledg
   "pending": true,
   "metadata": {
     "acquirer": "SUMUP",
-    "connection_id": "01948df2-0000-7000-8000-000000000001",
     "nsu": "987654321",
-    "tid": "TID-554433",
     "installment_number": 1,
-    "total_installments": 3,
     "gross_value": "100.00",
     "mdr_fee": "3.00",
     "net_value": "97.00",
@@ -88,106 +111,64 @@ The plugin designs a multi-tiered account hierarchy within the target Midaz Ledg
     "asset": "BRL",
     "value": "100.00",
     "source": {
-      "from": [
-        {
-          "accountAlias": "@external/acquirer_sumup",
-          "amount": { "asset": "BRL", "value": "100.00" },
-          "description": "Debit SumUp Clearing Account (Gross Claim)"
-        }
-      ]
+      "from": [{ "accountAlias": "@acquirer/sumup", "amount": { "asset": "BRL", "value": "100.00" } }]
     },
     "distribute": {
       "to": [
-        {
-          "accountAlias": "@merchant_alpha/receivables",
-          "amount": { "asset": "BRL", "value": "97.00" },
-          "description": "Credit Merchant Receivables Account (Net Value, Pending)"
-        },
-        {
-          "accountAlias": "@platform/mdr_revenue",
-          "amount": { "asset": "BRL", "value": "3.00" },
-          "description": "Credit Platform MDR Fee Revenue"
-        }
+        { "accountAlias": "@merchant_alpha/receivables", "amount": { "asset": "BRL", "value": "97.00" } },
+        { "accountAlias": "@platform/mdr_revenue", "amount": { "asset": "BRL", "value": "3.00" } }
       ]
     }
   }
 }
 ```
+* **Ledger state:** `@acquirer/sumup` has Available: 0, OnHold: R$ 100.00. The Midaz transaction ID is saved in `receivables_installments.midaz_receivable_tx_id`.
 
 ---
 
-### Phase 2: Reconciliation & Two-Phase Settlement ($D+X$)
+### Phase 2: Reconciliation & Multi-Leg Settlement ($D+X$)
 
-1. **Bank Statement Sync:** On 2026-12-20, an acquirer deposit of R$ 300.00 arrives in the merchant's Sicredi bank account.
-2. **Pre-Posting Matcher Gate:** Because `reconciliation_enabled: true` on `@merchant_alpha/openfinance`, the bank transaction is NOT immediately posted from `@external/BRL:openfinance`. Instead, it is sent to **Matcher 6** as Source B.
-3. **Matcher 6 Resolution:** Matcher 6 finds 3 scheduled receivables (e.g., R$ 200.00 from SumUp, R$ 50.00 from PagBank, R$ 50.00 from PagBank) totaling R$ 300.00.
-4. **Reconciliation Execution:**
-   - **Step A (Commit Pending Operations):** For each of the 3 receivables, the plugin calls Midaz:
-     ```http
-     POST /v1/organizations/{org_id}/ledgers/{ledger_id}/transactions/{midaz_receivable_tx_id}/commit
-     ```
-     This moves each receivable out of `PENDING` status, actualizing the credit in `@merchant_alpha/receivables`.
-   - **Step B (Multi-Source $N:1$ Transfer):** The plugin executes an atomic transaction with 3 source legs originating from `@merchant_alpha/receivables` and 1 destination leg to `@merchant_alpha/openfinance`.
+1. **Bank Statement Sync:** SumUp deposits R$ 250.10 in Sicredi (R$ 300.00 in sales minus R$ 49.90 POS terminal rental).
+2. **Matcher 6 Reconciliation:** Matcher 6 (running in the dedicated Context for `@merchant_alpha`) reconciles the bank credit against the 3 receivables.
+3. **Execution Sequence:**
+   - **Step A:** `POST /transactions/{midaz_receivable_tx_id}/commit` for each of the 3 receivables.
+   - **Step B:** Atomic $N:M$ settlement transfer:
 
-#### Midaz Multi-Source Settlement Transaction Payload ($N:1$):
 ```json
 {
   "chartOfAccountsGroupName": "OPEN_FINANCE_SYNC",
   "description": "Open Finance Deposit OFP-SICREDI-998877 (Conciliated with 3 Receivables)",
   "code": "OFP-SICREDI-998877",
-  "metadata": {
-    "matcher_run_id": "a9b8c7d6-e5f4-3210-9876-543210abcdef",
-    "match_id": "match_01948df2_998877",
-    "bank_tx_id": "OFP-SICREDI-998877",
-    "receivables_count": 3,
-    "settlement_date": "2026-12-20",
-    "reconciliation_strategy": "MULTI_SOURCE_SETTLEMENT"
-  },
   "send": {
     "asset": "BRL",
     "value": "300.00",
     "source": {
       "from": [
-        {
-          "accountAlias": "@merchant_alpha/receivables",
-          "amount": { "asset": "BRL", "value": "200.00" },
-          "description": "Receivable REC-SUMUP-1001-1 (NSU: 1001)"
-        },
-        {
-          "accountAlias": "@merchant_alpha/receivables",
-          "amount": { "asset": "BRL", "value": "50.00" },
-          "description": "Receivable REC-PAGBANK-2001-1 (NSU: 2001)"
-        },
-        {
-          "accountAlias": "@merchant_alpha/receivables",
-          "amount": { "asset": "BRL", "value": "50.00" },
-          "description": "Receivable REC-PAGBANK-2002-1 (NSU: 2002)"
-        }
+        { "accountAlias": "@merchant_alpha/receivables", "amount": { "asset": "BRL", "value": "200.00" } },
+        { "accountAlias": "@merchant_alpha/receivables", "amount": { "asset": "BRL", "value": "50.00" } },
+        { "accountAlias": "@merchant_alpha/receivables", "amount": { "asset": "BRL", "value": "50.00" } }
       ]
     },
     "distribute": {
       "to": [
         {
-          "accountAlias": "@merchant_alpha/openfinance",
-          "amount": { "asset": "BRL", "value": "300.00" },
-          "description": "Credit Mirrored Open Finance Bank Account"
+          "accountAlias": "@merchant_alpha/bank_sicredi",
+          "amount": { "asset": "BRL", "value": "250.10" },
+          "description": "Liquid Bank Deposit"
+        },
+        {
+          "accountAlias": "@merchant_alpha/receivables/fees",
+          "amount": { "asset": "BRL", "value": "49.90" },
+          "description": "SumUp POS Terminal Rental",
+          "metadata": {
+            "charged_by": "SUMUP",
+            "fee_type": "MACHINE_RENTAL"
+          }
         }
       ]
     }
   }
 }
 ```
-
----
-
-### Phase 3: Non-Reconciled Bank Transactions
-
-Any transaction entering the mirrored bank account that is **not** matched to card receivables (e.g., standard Pix incoming, payroll, vendor wire) follows the standard Open Finance direct posting:
-
-* **Debit:** `@external/BRL:openfinance` $\rightarrow$ Total amount.
-* **Credit:** `@merchant_alpha/openfinance` $\rightarrow$ Total amount.
-
-This guarantees that:
-1. Receivables balances in Midaz are never double-counted.
-2. The bank statement mirror (`@merchant_alpha/openfinance`) precisely reflects bank reality.
-3. Every card settlement in the bank statement is directly traceable to the specific receivables that funded it.
+   - **Step C:** Inter-plugin ACK:
+     `POST /v1/internal/transactions/mark-processed` sent to `plugin-openfinance`.

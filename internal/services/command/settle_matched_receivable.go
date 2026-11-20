@@ -14,21 +14,34 @@ type MatchedReceivableItem struct {
 	Amount          decimal.Decimal `json:"amount"`             // e.g. 97.00
 }
 
+type SettlementDeductionItem struct {
+	FeeType     string          `json:"feeType"`     // e.g. "MACHINE_RENTAL", "CHARGEBACK", "ANTICIPATION_FEE"
+	ChargedBy   string          `json:"chargedBy"`   // e.g. "SUMUP", "PAGBANK"
+	Description string          `json:"description"` // e.g. "Monthly POS Terminal Rental"
+	Amount      decimal.Decimal `json:"amount"`
+}
+
 type SettleMatchedReceivableInput struct {
-	OrganizationID           string                  `json:"organizationId"`
-	LedgerID                 string                  `json:"ledgerId"`
-	MatchID                  string                  `json:"matchId"`
-	MatcherRunID             string                  `json:"matcherRunId"`
-	BankTransactionID        string                  `json:"bankTransactionId"`        // e.g. "OFP-SICREDI-998877"
-	TargetOpenFinanceAccount string                  `json:"targetOpenFinanceAccount"` // e.g. "@contadomeucliente/openfinance"
-	TotalDepositAmount       decimal.Decimal         `json:"totalDepositAmount"`       // e.g. 300.00
-	SettlementDate           time.Time               `json:"settlementDate"`
-	Items                    []MatchedReceivableItem `json:"items"`
+	OrganizationID           string                    `json:"organizationId"`
+	LedgerID                 string                    `json:"ledgerId"`
+	MatchID                  string                    `json:"matchId"`
+	MatcherRunID             string                    `json:"matcherRunId"`
+	BankTransactionID        string                    `json:"bankTransactionId"`        // e.g. "OFP-SICREDI-998877"
+	TargetOpenFinanceAccount string                    `json:"targetOpenFinanceAccount"` // e.g. "@contadomeucliente/openfinance"
+	TotalDepositAmount       decimal.Decimal           `json:"totalDepositAmount"`       // Net amount deposited in bank
+	SettlementDate           time.Time                 `json:"settlementDate"`
+	Items                    []MatchedReceivableItem   `json:"items"`
+	Deductions               []SettlementDeductionItem `json:"deductions,omitempty"` // Tariffs/deductions deducted by acquirer
+}
+
+type IOpenFinanceNotifier interface {
+	MarkTransactionProcessed(ctx context.Context, bankTxID, midazTxCode string) error
 }
 
 type SettleMatchedReceivableHandler struct {
-	repo        domain.IReceivablesRepository
-	midazClient domain.IMidazLedgerClient
+	repo               domain.IReceivablesRepository
+	midazClient        domain.IMidazLedgerClient
+	openFinanceNotifier IOpenFinanceNotifier
 }
 
 func NewSettleMatchedReceivableHandler(
@@ -39,6 +52,11 @@ func NewSettleMatchedReceivableHandler(
 		repo:        repo,
 		midazClient: midazClient,
 	}
+}
+
+func (h *SettleMatchedReceivableHandler) WithOpenFinanceNotifier(notifier IOpenFinanceNotifier) *SettleMatchedReceivableHandler {
+	h.openFinanceNotifier = notifier
+	return h
 }
 
 func (h *SettleMatchedReceivableHandler) Execute(ctx context.Context, input SettleMatchedReceivableInput) error {
@@ -54,6 +72,7 @@ func (h *SettleMatchedReceivableHandler) Execute(ctx context.Context, input Sett
 	// 1. Resolve and Commit each pending receivable transaction in Midaz
 	var sourceLegs []domain.TransactionSourceLeg
 	var resolvedInstallments []*domain.Installment
+	var parentAccount *domain.ReceivablesAccount
 
 	for _, item := range input.Items {
 		acquirer, nsu, installmentNum, err := domain.ParseDeterministicReceivableCode(item.SourceARecordID)
@@ -81,8 +100,9 @@ func (h *SettleMatchedReceivableHandler) Execute(ctx context.Context, input Sett
 		if acc == nil {
 			return fmt.Errorf("settle_matched_receivable: parent receivables account %s not found", inst.ReceivablesAccountID)
 		}
+		parentAccount = acc
 
-		// COMMIT the pending transaction in Midaz (moves funds from pending to committed in @receivables)
+		// COMMIT the pending transaction in Midaz (releases on-hold in @acquirer/<name> and credits @receivables)
 		if inst.MidazReceivableTxID != nil && *inst.MidazReceivableTxID != "" {
 			if err := h.midazClient.CommitTransaction(ctx, input.OrganizationID, input.LedgerID, *inst.MidazReceivableTxID); err != nil {
 				return fmt.Errorf("settle_matched_receivable: failed committing pending receivable %s: %w", item.SourceARecordID, err)
@@ -115,39 +135,64 @@ func (h *SettleMatchedReceivableHandler) Execute(ctx context.Context, input Sett
 		return nil
 	}
 
-	totalAmount := input.TotalDepositAmount
-	if totalAmount.IsZero() {
-		for _, leg := range sourceLegs {
-			totalAmount = totalAmount.Add(leg.Amount)
-		}
+	totalSourcesAmount := decimal.Zero
+	for _, leg := range sourceLegs {
+		totalSourcesAmount = totalSourcesAmount.Add(leg.Amount)
 	}
 
 	targetOpenFinanceAccount := input.TargetOpenFinanceAccount
-	if targetOpenFinanceAccount == "" && len(resolvedInstallments) > 0 {
-		firstAcc, err := h.repo.FindReceivablesAccountByID(ctx, resolvedInstallments[0].ReceivablesAccountID)
-		if err == nil && firstAcc != nil && firstAcc.CheckingAccountAlias != "" {
-			targetOpenFinanceAccount = firstAcc.CheckingAccountAlias
-		}
+	if targetOpenFinanceAccount == "" && parentAccount != nil && parentAccount.CheckingAccountAlias != "" {
+		targetOpenFinanceAccount = parentAccount.CheckingAccountAlias
 	}
 	if targetOpenFinanceAccount == "" {
 		return fmt.Errorf("settle_matched_receivable: targetOpenFinanceAccount is required and no default checking account alias is set")
 	}
 
-	// 2. Post atomic N:1 transfer: N sources (@XPTO/receivables) -> 1 destination (@account/openfinance)
+	feeAccountAlias := ""
+	if parentAccount != nil {
+		feeAccountAlias = parentAccount.FeeAccountAlias
+		if feeAccountAlias == "" && parentAccount.AccountAlias != "" {
+			feeAccountAlias = parentAccount.AccountAlias + "/fees"
+		}
+	}
+
+	// Build optional deduction legs
+	var deductionLegs []domain.TransactionDestinationLeg
+	totalDeductions := decimal.Zero
+	for _, ded := range input.Deductions {
+		if ded.Amount.IsPositive() && feeAccountAlias != "" {
+			totalDeductions = totalDeductions.Add(ded.Amount)
+			deductionLegs = append(deductionLegs, domain.TransactionDestinationLeg{
+				AccountAlias: feeAccountAlias,
+				Amount:       ded.Amount,
+				Description:  fmt.Sprintf("%s Deduction: %s", ded.ChargedBy, ded.Description),
+				Metadata: map[string]any{
+					"fee_type":   ded.FeeType,
+					"charged_by": ded.ChargedBy,
+					"reason":     ded.Description,
+					"bank_tx_id": input.BankTransactionID,
+				},
+			})
+		}
+	}
+
+	// 2. Post atomic N:M transfer: N sources (@XPTO/receivables) -> Bank Account + Fee Subaccounts
 	settlePayload := &domain.MultiSourceTransactionPayload{
 		ChartOfAccountsGroupName: "OPEN_FINANCE_SYNC",
 		Description: fmt.Sprintf("Open Finance Deposit %s (Conciliated with %d Receivables)",
 			input.BankTransactionID, len(sourceLegs)),
 		Code:                    input.BankTransactionID,
-		TotalAmount:             totalAmount,
+		TotalAmount:             totalSourcesAmount,
 		AssetCode:               "BRL",
 		Sources:                 sourceLegs,
 		DestinationAccountAlias: targetOpenFinanceAccount,
+		Deductions:              deductionLegs,
 		Metadata: map[string]any{
 			"matcher_run_id":          input.MatcherRunID,
 			"match_id":                input.MatchID,
 			"bank_tx_id":              input.BankTransactionID,
 			"receivables_count":       len(sourceLegs),
+			"deductions_count":        len(deductionLegs),
 			"settlement_date":         settlementDate.Format("2006-01-02"),
 			"reconciliation_strategy": "MULTI_SOURCE_SETTLEMENT",
 		},
@@ -163,6 +208,11 @@ func (h *SettleMatchedReceivableHandler) Execute(ctx context.Context, input Sett
 		if err := h.repo.MarkInstallmentReconciled(ctx, inst.ID, settleTxID, input.MatcherRunID, settlementDate); err != nil {
 			continue
 		}
+	}
+
+	// 4. Inter-plugin notification: notify Open Finance that this bank deposit was settled via reconciliation
+	if h.openFinanceNotifier != nil && input.BankTransactionID != "" {
+		_ = h.openFinanceNotifier.MarkTransactionProcessed(ctx, input.BankTransactionID, settleTxID)
 	}
 
 	return nil

@@ -11,10 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type MockOpenFinanceNotifier struct {
+	mock.Mock
+}
+
+func (m *MockOpenFinanceNotifier) MarkTransactionProcessed(ctx context.Context, bankTxID, midazTxCode string) error {
+	args := m.Called(ctx, bankTxID, midazTxCode)
+	return args.Error(0)
+}
+
 func TestSettleMatchedReceivableHandler_Execute(t *testing.T) {
-	t.Run("Success D+X Multi-Source Settlement Transfer", func(t *testing.T) {
+	t.Run("Success D+X Multi-Source Settlement Transfer with Deductions and Open Finance Notification", func(t *testing.T) {
 		repo := new(MockRepository)
 		midazClient := new(MockMidazClient)
+		notifier := new(MockOpenFinanceNotifier)
 
 		pendingTx1 := "TX-PENDING-SUMUP-001"
 		pendingTx2 := "TX-PENDING-PAGBANK-002"
@@ -44,10 +54,10 @@ func TestSettleMatchedReceivableHandler_Execute(t *testing.T) {
 		acc := &domain.ReceivablesAccount{
 			ID:                   "acc_rec_1",
 			AccountAlias:         "@merchant_z/receivables",
-			CheckingAccountAlias: "@merchant_z/checking",
+			FeeAccountAlias:      "@merchant_z/receivables/fees",
+			CheckingAccountAlias: "@merchant_z/bank_sicredi",
 		}
 
-		// 1. Installments lookup
 		repo.On("FindInstallmentByReceivableCode", mock.Anything, domain.AcquirerSumUp, "SUMUP_NSU_100", 1).
 			Return(inst1, nil)
 		repo.On("FindInstallmentByReceivableCode", mock.Anything, domain.AcquirerPagBank, "PAGBANK_NSU_200", 1).
@@ -56,22 +66,21 @@ func TestSettleMatchedReceivableHandler_Execute(t *testing.T) {
 		repo.On("FindReceivablesAccountByID", mock.Anything, "acc_rec_1").
 			Return(acc, nil).Twice()
 
-		// 2. Commit Pending Transactions in Midaz
+		// Commit Pending Transactions in Midaz
 		midazClient.On("CommitTransaction", mock.Anything, "org_1", "led_1", pendingTx1).
 			Return(nil).Once()
 		midazClient.On("CommitTransaction", mock.Anything, "org_1", "led_1", pendingTx2).
 			Return(nil).Once()
 
-		// 3. Multi-source N:1 transfer to target Open Finance account
+		// Multi-source transfer with Deductions to Midaz
 		midazClient.On("PostMultiSourceTransaction", mock.Anything, "org_1", "led_1", mock.MatchedBy(func(tx *domain.MultiSourceTransactionPayload) bool {
 			return tx.Code == "OFP-SICREDI-BANKTX-9988" &&
-				tx.DestinationAccountAlias == "@contadomeucliente/openfinance" &&
+				tx.DestinationAccountAlias == "@merchant_z/bank_sicredi" &&
 				tx.TotalAmount.Equal(decimal.NewFromFloat(300.00)) &&
 				len(tx.Sources) == 2 &&
-				tx.Sources[0].AccountAlias == "@merchant_z/receivables" &&
-				tx.Sources[0].Amount.Equal(decimal.NewFromFloat(200.00)) &&
-				tx.Sources[1].AccountAlias == "@merchant_z/receivables" &&
-				tx.Sources[1].Amount.Equal(decimal.NewFromFloat(100.00))
+				len(tx.Deductions) == 1 &&
+				tx.Deductions[0].AccountAlias == "@merchant_z/receivables/fees" &&
+				tx.Deductions[0].Amount.Equal(decimal.NewFromFloat(49.90))
 		})).Return("MIDAZ-MULTI-TX-777", nil).Once()
 
 		settleDate := time.Date(2026, 8, 20, 10, 0, 0, 0, time.UTC)
@@ -80,15 +89,19 @@ func TestSettleMatchedReceivableHandler_Execute(t *testing.T) {
 		repo.On("MarkInstallmentReconciled", mock.Anything, "inst_2", "MIDAZ-MULTI-TX-777", "run_101", settleDate).
 			Return(nil).Once()
 
-		handler := NewSettleMatchedReceivableHandler(repo, midazClient)
+		// Expect Open Finance notification call
+		notifier.On("MarkTransactionProcessed", mock.Anything, "OFP-SICREDI-BANKTX-9988", "MIDAZ-MULTI-TX-777").
+			Return(nil).Once()
+
+		handler := NewSettleMatchedReceivableHandler(repo, midazClient).WithOpenFinanceNotifier(notifier)
 		err := handler.Execute(context.Background(), SettleMatchedReceivableInput{
 			OrganizationID:           "org_1",
 			LedgerID:                 "led_1",
 			MatchID:                  "match_abc_123",
 			MatcherRunID:             "run_101",
 			BankTransactionID:        "OFP-SICREDI-BANKTX-9988",
-			TargetOpenFinanceAccount: "@contadomeucliente/openfinance",
-			TotalDepositAmount:       decimal.NewFromFloat(300.00),
+			TargetOpenFinanceAccount: "@merchant_z/bank_sicredi",
+			TotalDepositAmount:       decimal.NewFromFloat(250.10),
 			SettlementDate:           settleDate,
 			Items: []MatchedReceivableItem{
 				{
@@ -100,11 +113,20 @@ func TestSettleMatchedReceivableHandler_Execute(t *testing.T) {
 					Amount:          decimal.NewFromFloat(100.00),
 				},
 			},
+			Deductions: []SettlementDeductionItem{
+				{
+					FeeType:     "MACHINE_RENTAL",
+					ChargedBy:   "SUMUP",
+					Description: "Monthly POS terminal rental",
+					Amount:      decimal.NewFromFloat(49.90),
+				},
+			},
 		})
 
 		require.NoError(t, err)
 		repo.AssertExpectations(t)
 		midazClient.AssertExpectations(t)
+		notifier.AssertExpectations(t)
 	})
 
 	t.Run("Idempotent When All Items Already Reconciled", func(t *testing.T) {

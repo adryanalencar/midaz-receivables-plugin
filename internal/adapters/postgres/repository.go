@@ -27,7 +27,7 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
-// CreateReceivablesAccount inserts a new receivables account record.
+// CreateReceivablesAccount inserts a new receivables account record with subaccount hierarchy.
 func (r *Repository) CreateReceivablesAccount(ctx context.Context, account *domain.ReceivablesAccount) error {
 	if account.ID == "" {
 		account.ID = uuid.NewString()
@@ -36,18 +36,29 @@ func (r *Repository) CreateReceivablesAccount(ctx context.Context, account *doma
 	account.CreatedAt = now
 	account.UpdatedAt = now
 
+	var motherAliasVal, feeAliasVal, matcherCtxVal *string
+	if account.MotherAccountAlias != "" {
+		motherAliasVal = &account.MotherAccountAlias
+	}
+	if account.FeeAccountAlias != "" {
+		feeAliasVal = &account.FeeAccountAlias
+	}
+	if account.MatcherContextID != "" {
+		matcherCtxVal = &account.MatcherContextID
+	}
+
 	query := `
 		INSERT INTO receivables_accounts (
-			id, organization_id, ledger_id, midaz_account_id, 
-			account_alias, checking_account_alias, name, status, 
-			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			id, organization_id, ledger_id, midaz_account_id, parent_account_id,
+			mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+			matcher_context_id, name, status, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 
 	_, err := r.db.ExecContext(ctx, query,
-		account.ID, account.OrganizationID, account.LedgerID, account.MidazAccountID,
-		account.AccountAlias, account.CheckingAccountAlias, account.Name, account.Status,
-		account.CreatedAt, account.UpdatedAt,
+		account.ID, account.OrganizationID, account.LedgerID, account.MidazAccountID, account.ParentAccountID,
+		motherAliasVal, account.AccountAlias, feeAliasVal, account.CheckingAccountAlias,
+		matcherCtxVal, account.Name, account.Status, account.CreatedAt, account.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("repository: failed to insert receivables account: %w", err)
@@ -59,18 +70,20 @@ func (r *Repository) CreateReceivablesAccount(ctx context.Context, account *doma
 // FindReceivablesAccountByID retrieves an account by primary key UUID.
 func (r *Repository) FindReceivablesAccountByID(ctx context.Context, id string) (*domain.ReceivablesAccount, error) {
 	query := `
-		SELECT id, organization_id, ledger_id, midaz_account_id,
-		       account_alias, checking_account_alias, name, status,
-		       created_at, updated_at
+		SELECT id, organization_id, ledger_id, midaz_account_id, parent_account_id,
+		       mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+		       matcher_context_id, name, status, created_at, updated_at
 		FROM receivables_accounts
 		WHERE id = $1
 	`
 
 	var acc domain.ReceivablesAccount
+	var parentID, motherAlias, feeAlias, matcherCtx sql.NullString
+
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID,
-		&acc.AccountAlias, &acc.CheckingAccountAlias, &acc.Name, &acc.Status,
-		&acc.CreatedAt, &acc.UpdatedAt,
+		&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID, &parentID,
+		&motherAlias, &acc.AccountAlias, &feeAlias, &acc.CheckingAccountAlias,
+		&matcherCtx, &acc.Name, &acc.Status, &acc.CreatedAt, &acc.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -79,24 +92,39 @@ func (r *Repository) FindReceivablesAccountByID(ctx context.Context, id string) 
 		return nil, fmt.Errorf("repository: failed to query receivables account by id: %w", err)
 	}
 
+	if parentID.Valid {
+		acc.ParentAccountID = &parentID.String
+	}
+	if motherAlias.Valid {
+		acc.MotherAccountAlias = motherAlias.String
+	}
+	if feeAlias.Valid {
+		acc.FeeAccountAlias = feeAlias.String
+	}
+	if matcherCtx.Valid {
+		acc.MatcherContextID = matcherCtx.String
+	}
+
 	return &acc, nil
 }
 
 // FindReceivablesAccountByAlias retrieves an account by its unique Midaz alias.
 func (r *Repository) FindReceivablesAccountByAlias(ctx context.Context, alias string) (*domain.ReceivablesAccount, error) {
 	query := `
-		SELECT id, organization_id, ledger_id, midaz_account_id,
-		       account_alias, checking_account_alias, name, status,
-		       created_at, updated_at
+		SELECT id, organization_id, ledger_id, midaz_account_id, parent_account_id,
+		       mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+		       matcher_context_id, name, status, created_at, updated_at
 		FROM receivables_accounts
 		WHERE account_alias = $1
 	`
 
 	var acc domain.ReceivablesAccount
+	var parentID, motherAlias, feeAlias, matcherCtx sql.NullString
+
 	err := r.db.QueryRowContext(ctx, query, alias).Scan(
-		&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID,
-		&acc.AccountAlias, &acc.CheckingAccountAlias, &acc.Name, &acc.Status,
-		&acc.CreatedAt, &acc.UpdatedAt,
+		&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID, &parentID,
+		&motherAlias, &acc.AccountAlias, &feeAlias, &acc.CheckingAccountAlias,
+		&matcherCtx, &acc.Name, &acc.Status, &acc.CreatedAt, &acc.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -105,15 +133,28 @@ func (r *Repository) FindReceivablesAccountByAlias(ctx context.Context, alias st
 		return nil, fmt.Errorf("repository: failed to query receivables account by alias: %w", err)
 	}
 
+	if parentID.Valid {
+		acc.ParentAccountID = &parentID.String
+	}
+	if motherAlias.Valid {
+		acc.MotherAccountAlias = motherAlias.String
+	}
+	if feeAlias.Valid {
+		acc.FeeAccountAlias = feeAlias.String
+	}
+	if matcherCtx.Valid {
+		acc.MatcherContextID = matcherCtx.String
+	}
+
 	return &acc, nil
 }
 
 // ListReceivablesAccounts retrieves all accounts.
 func (r *Repository) ListReceivablesAccounts(ctx context.Context) ([]domain.ReceivablesAccount, error) {
 	query := `
-		SELECT id, organization_id, ledger_id, midaz_account_id,
-		       account_alias, checking_account_alias, name, status,
-		       created_at, updated_at
+		SELECT id, organization_id, ledger_id, midaz_account_id, parent_account_id,
+		       mother_account_alias, account_alias, fee_account_alias, checking_account_alias,
+		       matcher_context_id, name, status, created_at, updated_at
 		FROM receivables_accounts
 		ORDER BY created_at DESC
 	`
@@ -127,13 +168,29 @@ func (r *Repository) ListReceivablesAccounts(ctx context.Context) ([]domain.Rece
 	var accounts []domain.ReceivablesAccount
 	for rows.Next() {
 		var acc domain.ReceivablesAccount
+		var parentID, motherAlias, feeAlias, matcherCtx sql.NullString
+
 		if err := rows.Scan(
-			&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID,
-			&acc.AccountAlias, &acc.CheckingAccountAlias, &acc.Name, &acc.Status,
-			&acc.CreatedAt, &acc.UpdatedAt,
+			&acc.ID, &acc.OrganizationID, &acc.LedgerID, &acc.MidazAccountID, &parentID,
+			&motherAlias, &acc.AccountAlias, &feeAlias, &acc.CheckingAccountAlias,
+			&matcherCtx, &acc.Name, &acc.Status, &acc.CreatedAt, &acc.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("repository: failed to scan account row: %w", err)
 		}
+
+		if parentID.Valid {
+			acc.ParentAccountID = &parentID.String
+		}
+		if motherAlias.Valid {
+			acc.MotherAccountAlias = motherAlias.String
+		}
+		if feeAlias.Valid {
+			acc.FeeAccountAlias = feeAlias.String
+		}
+		if matcherCtx.Valid {
+			acc.MatcherContextID = matcherCtx.String
+		}
+
 		accounts = append(accounts, acc)
 	}
 
