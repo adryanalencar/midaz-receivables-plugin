@@ -26,6 +26,7 @@ func TestCreateReceivablesAccount(t *testing.T) {
 		MidazAccountID:       "mid-acc-001",
 		AccountAlias:         "@merchant_alpha/receivables",
 		CheckingAccountAlias: "@merchant_alpha/checking",
+		ExternalAccountAlias: "@external/BRL:custom",
 		Name:                 "Receivables - Merchant Alpha",
 		Status:               "ACTIVE",
 	}
@@ -33,7 +34,7 @@ func TestCreateReceivablesAccount(t *testing.T) {
 	mock.ExpectExec("INSERT INTO receivables_accounts").
 		WithArgs(
 			account.ID, account.OrganizationID, account.LedgerID, account.MidazAccountID, account.ParentAccountID,
-			nil, account.AccountAlias, nil, nil, account.CheckingAccountAlias,
+			nil, account.AccountAlias, account.ExternalAccountAlias, nil, nil, account.CheckingAccountAlias,
 			nil, account.Name, account.Status, sqlmock.AnyArg(), sqlmock.AnyArg(),
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
@@ -53,11 +54,11 @@ func TestFindReceivablesAccountByID(t *testing.T) {
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{
 		"id", "organization_id", "ledger_id", "midaz_account_id", "parent_account_id",
-		"mother_account_alias", "account_alias", "mdr_revenue_account_alias", "fee_account_alias", "checking_account_alias",
+		"mother_account_alias", "account_alias", "external_account_alias", "mdr_revenue_account_alias", "fee_account_alias", "checking_account_alias",
 		"matcher_context_id", "name", "status", "created_at", "updated_at",
 	}).AddRow(
 		"acc-001", "org-001", "led-001", "mid-acc-001", nil,
-		nil, "@merchant_alpha/receivables", "@merchant_alpha/receivables/mdr_revenue", "@merchant_alpha/receivables/fees", "@merchant_alpha/checking",
+		nil, "@merchant_alpha/receivables", "@external/BRL:custom", "@merchant_alpha/receivables/mdr_revenue", "@merchant_alpha/receivables/fees", "@merchant_alpha/checking",
 		nil, "Receivables - Alpha", "ACTIVE", now, now,
 	)
 

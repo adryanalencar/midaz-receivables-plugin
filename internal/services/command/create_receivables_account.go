@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/domain"
 	"github.com/google/uuid"
 )
@@ -22,6 +23,7 @@ type CreateReceivablesAccountInput struct {
 	ParentAccountID             *string        `json:"parentAccountId,omitempty"`    // Mother Account ID in Midaz (CNPJ Master)
 	MotherAccountAlias          string         `json:"motherAccountAlias,omitempty"` // e.g. "@merchant_alpha"
 	Alias                       string         `json:"alias"`                        // e.g. "@merchant_alpha/receivables"
+	ExternalAccountAlias        string         `json:"externalAccountAlias,omitempty"` // Chosen Midaz external clearing account
 	Name                        string         `json:"name"`
 	CNPJ                        string         `json:"cnpj"`
 	DefaultCheckingAccountAlias string         `json:"defaultCheckingAccountAlias"`
@@ -32,17 +34,24 @@ type CreateReceivablesAccountHandler struct {
 	repo          domain.IReceivablesRepository
 	midazClient   domain.IMidazLedgerClient
 	matcherClient domain.IMatcherClient
+	cfg           *bootstrap.Config
 }
 
 func NewCreateReceivablesAccountHandler(
 	repo domain.IReceivablesRepository,
 	midazClient domain.IMidazLedgerClient,
 	matcherClient domain.IMatcherClient,
+	cfg ...*bootstrap.Config,
 ) *CreateReceivablesAccountHandler {
+	var config *bootstrap.Config
+	if len(cfg) > 0 {
+		config = cfg[0]
+	}
 	return &CreateReceivablesAccountHandler{
 		repo:          repo,
 		midazClient:   midazClient,
 		matcherClient: matcherClient,
+		cfg:           config,
 	}
 }
 
@@ -99,6 +108,17 @@ func (h *CreateReceivablesAccountHandler) Execute(ctx context.Context, input Cre
 		}
 	}
 
+	extAlias := strings.TrimSpace(input.ExternalAccountAlias)
+	if extAlias == "" {
+		if h.cfg != nil && h.cfg.MidazClearingAccountAlias != "" {
+			extAlias = h.cfg.MidazClearingAccountAlias
+		} else {
+			extAlias = domain.UniversalFiatClearingAccount
+		}
+	} else if !strings.HasPrefix(extAlias, "@") {
+		extAlias = "@" + extAlias
+	}
+
 	now := time.Now().UTC()
 	account := &domain.ReceivablesAccount{
 		ID:                     uuid.NewString(),
@@ -108,6 +128,7 @@ func (h *CreateReceivablesAccountHandler) Execute(ctx context.Context, input Cre
 		ParentAccountID:        input.ParentAccountID,
 		MotherAccountAlias:     input.MotherAccountAlias,
 		AccountAlias:           alias,
+		ExternalAccountAlias:   extAlias,
 		MDRRevenueAccountAlias: mdrAlias,
 		FeeAccountAlias:        feeAlias,
 		CheckingAccountAlias:   checkingAlias,

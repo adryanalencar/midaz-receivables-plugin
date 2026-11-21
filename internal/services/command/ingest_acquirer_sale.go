@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/domain"
 )
 
@@ -25,12 +26,18 @@ type IngestAcquirerSaleInput struct {
 type IngestAcquirerSaleHandler struct {
 	repo        domain.IReceivablesRepository
 	midazClient domain.IMidazLedgerClient
+	cfg         *bootstrap.Config
 }
 
-func NewIngestAcquirerSaleHandler(repo domain.IReceivablesRepository, midazClient domain.IMidazLedgerClient) *IngestAcquirerSaleHandler {
+func NewIngestAcquirerSaleHandler(repo domain.IReceivablesRepository, midazClient domain.IMidazLedgerClient, cfg ...*bootstrap.Config) *IngestAcquirerSaleHandler {
+	var config *bootstrap.Config
+	if len(cfg) > 0 {
+		config = cfg[0]
+	}
 	return &IngestAcquirerSaleHandler{
 		repo:        repo,
 		midazClient: midazClient,
+		cfg:         config,
 	}
 }
 
@@ -82,7 +89,14 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 	// 3. Post D+0 two-step double-entry in Midaz for each installment:
 	//    Step A: Fund the internal acquirer account from universal external fiat (immediate)
 	//    Step B: Allocate from internal acquirer account to receivables account as PENDING (on-hold)
-	universalClearingAlias := domain.UniversalFiatClearingAccount
+	universalClearingAlias := acc.ExternalAccountAlias
+	if universalClearingAlias == "" {
+		if h.cfg != nil && h.cfg.MidazClearingAccountAlias != "" {
+			universalClearingAlias = h.cfg.MidazClearingAccountAlias
+		} else {
+			universalClearingAlias = domain.UniversalFiatClearingAccount
+		}
+	}
 	acquirerInternalAlias := domain.AcquirerInternalAccountAlias(sale.Acquirer)
 
 	for i := range sale.Installments {

@@ -14,6 +14,7 @@ type ReceivablesAccount struct {
 	ParentAccountID      *string   `json:"parentAccountId,omitempty"`      // UUID of the Mother Account in Midaz
 	MotherAccountAlias   string    `json:"motherAccountAlias,omitempty"`   // e.g. "@merchant_alpha"
 	AccountAlias           string    `json:"accountAlias"`                     // e.g. "@merchant_alpha/receivables"
+	ExternalAccountAlias   string    `json:"externalAccountAlias,omitempty"`   // Chosen external funding origin: e.g. "@external/BRL:universal"
 	MDRRevenueAccountAlias string    `json:"mdrRevenueAccountAlias,omitempty"` // Subaccount for MDR: "@merchant_alpha/receivables/mdr_revenue"
 	FeeAccountAlias        string    `json:"feeAccountAlias,omitempty"`        // Subaccount for tariffs/fees: "@merchant_alpha/receivables/fees"
 	CheckingAccountAlias   string    `json:"checkingAccountAlias"`             // Default checking/openfinance alias

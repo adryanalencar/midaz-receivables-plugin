@@ -16,6 +16,7 @@ type AccountHandler struct {
 	repo            domain.IReceivablesRepository
 	createHandler   *command.CreateReceivablesAccountHandler
 	calendarHandler *query.GetCalendarHandler
+	midazClient     domain.IMidazLedgerClient
 }
 
 func NewAccountHandler(
@@ -23,12 +24,14 @@ func NewAccountHandler(
 	repo domain.IReceivablesRepository,
 	createHandler *command.CreateReceivablesAccountHandler,
 	calendarHandler *query.GetCalendarHandler,
+	midazClient domain.IMidazLedgerClient,
 ) *AccountHandler {
 	return &AccountHandler{
 		cfg:             cfg,
 		repo:            repo,
 		createHandler:   createHandler,
 		calendarHandler: calendarHandler,
+		midazClient:     midazClient,
 	}
 }
 
@@ -135,4 +138,29 @@ func (h *AccountHandler) GetCalendar(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(installments)
+}
+
+// ListExternalAccounts retrieves external clearing accounts registered in Midaz.
+func (h *AccountHandler) ListExternalAccounts(c *fiber.Ctx) error {
+	if h.midazClient == nil {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"items": []domain.ExternalAccount{},
+			"count": 0,
+		})
+	}
+
+	orgID := c.Query("organization_id", h.cfg.MidazOrganizationID)
+	ledgerID := c.Query("ledger_id", h.cfg.MidazLedgerID)
+
+	accounts, err := h.midazClient.ListExternalAccounts(c.Context(), orgID, ledgerID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"items": accounts,
+		"count": len(accounts),
+	})
 }

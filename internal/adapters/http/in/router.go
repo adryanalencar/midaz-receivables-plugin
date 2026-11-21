@@ -44,6 +44,12 @@ func NewRouter(
 	// API v1 Group
 	v1 := app.Group("/v1")
 
+	// External accounts endpoints (for selecting clearing origins/destinations)
+	if accountHandler != nil {
+		v1.Get("/accounts/external", accountHandler.ListExternalAccounts)
+		v1.Get("/external-accounts", accountHandler.ListExternalAccounts)
+	}
+
 	// Accounts endpoints
 	accounts := v1.Group("/accounts/receivables")
 	accounts.Post("/", accountHandler.CreateAccount)

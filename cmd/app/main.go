@@ -97,8 +97,8 @@ func main() {
 	var matcherWorker *workers.MatcherUploadWorker
 
 	if repo != nil {
-		createAccountHandler = command.NewCreateReceivablesAccountHandler(repo, midazClient, matcherClient)
-		ingestSaleHandler = command.NewIngestAcquirerSaleHandler(repo, midazClient)
+		createAccountHandler = command.NewCreateReceivablesAccountHandler(repo, midazClient, matcherClient, cfg)
+		ingestSaleHandler = command.NewIngestAcquirerSaleHandler(repo, midazClient, cfg)
 		settleMatchedHandler = command.NewSettleMatchedReceivableHandler(repo, midazClient).WithOpenFinanceNotifier(openFinanceClient)
 		uploadMatcherHandler = command.NewUploadReceivablesToMatcherHandler(repo, matcherClient)
 		calendarHandler = query.NewGetCalendarHandler(repo)
@@ -112,7 +112,7 @@ func main() {
 
 	// 11. Inbound HTTP Adapters & Handlers
 	manifestHandler := httpIn.NewManifestHandler(cfg)
-	accountHandler := httpIn.NewAccountHandler(cfg, repo, createAccountHandler, calendarHandler)
+	accountHandler := httpIn.NewAccountHandler(cfg, repo, createAccountHandler, calendarHandler, midazClient)
 	connectionHandler := httpIn.NewConnectionHandler(cfg, repo, createConnectionHandler, ingestSaleHandler, providerFactory, encryptor)
 	matcherWebhookHandler := httpIn.NewMatcherWebhookHandler(cfg, settleMatchedHandler)
 	acquirerWebhookHandler := httpIn.NewAcquirerWebhookHandler(cfg, repo, ingestSaleHandler, providerFactory, encryptor)
