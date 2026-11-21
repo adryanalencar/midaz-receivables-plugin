@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/domain"
 	"github.com/google/uuid"
 )
@@ -33,17 +34,24 @@ type CreateReceivablesAccountHandler struct {
 	repo          domain.IReceivablesRepository
 	midazClient   domain.IMidazLedgerClient
 	matcherClient domain.IMatcherClient
+	cfg           *bootstrap.Config
 }
 
 func NewCreateReceivablesAccountHandler(
 	repo domain.IReceivablesRepository,
 	midazClient domain.IMidazLedgerClient,
 	matcherClient domain.IMatcherClient,
+	cfg ...*bootstrap.Config,
 ) *CreateReceivablesAccountHandler {
+	var config *bootstrap.Config
+	if len(cfg) > 0 {
+		config = cfg[0]
+	}
 	return &CreateReceivablesAccountHandler{
 		repo:          repo,
 		midazClient:   midazClient,
 		matcherClient: matcherClient,
+		cfg:           config,
 	}
 }
 
@@ -102,7 +110,11 @@ func (h *CreateReceivablesAccountHandler) Execute(ctx context.Context, input Cre
 
 	extAlias := strings.TrimSpace(input.ExternalAccountAlias)
 	if extAlias == "" {
-		extAlias = domain.UniversalFiatClearingAccount
+		if h.cfg != nil && h.cfg.MidazClearingAccountAlias != "" {
+			extAlias = h.cfg.MidazClearingAccountAlias
+		} else {
+			extAlias = domain.UniversalFiatClearingAccount
+		}
 	} else if !strings.HasPrefix(extAlias, "@") {
 		extAlias = "@" + extAlias
 	}

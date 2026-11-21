@@ -97,8 +97,8 @@ func main() {
 	var matcherWorker *workers.MatcherUploadWorker
 
 	if repo != nil {
-		createAccountHandler = command.NewCreateReceivablesAccountHandler(repo, midazClient, matcherClient)
-		ingestSaleHandler = command.NewIngestAcquirerSaleHandler(repo, midazClient)
+		createAccountHandler = command.NewCreateReceivablesAccountHandler(repo, midazClient, matcherClient, cfg)
+		ingestSaleHandler = command.NewIngestAcquirerSaleHandler(repo, midazClient, cfg)
 		settleMatchedHandler = command.NewSettleMatchedReceivableHandler(repo, midazClient).WithOpenFinanceNotifier(openFinanceClient)
 		uploadMatcherHandler = command.NewUploadReceivablesToMatcherHandler(repo, matcherClient)
 		calendarHandler = query.NewGetCalendarHandler(repo)

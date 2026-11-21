@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/domain"
 )
 
@@ -25,12 +26,18 @@ type IngestAcquirerSaleInput struct {
 type IngestAcquirerSaleHandler struct {
 	repo        domain.IReceivablesRepository
 	midazClient domain.IMidazLedgerClient
+	cfg         *bootstrap.Config
 }
 
-func NewIngestAcquirerSaleHandler(repo domain.IReceivablesRepository, midazClient domain.IMidazLedgerClient) *IngestAcquirerSaleHandler {
+func NewIngestAcquirerSaleHandler(repo domain.IReceivablesRepository, midazClient domain.IMidazLedgerClient, cfg ...*bootstrap.Config) *IngestAcquirerSaleHandler {
+	var config *bootstrap.Config
+	if len(cfg) > 0 {
+		config = cfg[0]
+	}
 	return &IngestAcquirerSaleHandler{
 		repo:        repo,
 		midazClient: midazClient,
+		cfg:         config,
 	}
 }
 
@@ -84,7 +91,11 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 	//    Step B: Allocate from internal acquirer account to receivables account as PENDING (on-hold)
 	universalClearingAlias := acc.ExternalAccountAlias
 	if universalClearingAlias == "" {
-		universalClearingAlias = domain.UniversalFiatClearingAccount
+		if h.cfg != nil && h.cfg.MidazClearingAccountAlias != "" {
+			universalClearingAlias = h.cfg.MidazClearingAccountAlias
+		} else {
+			universalClearingAlias = domain.UniversalFiatClearingAccount
+		}
 	}
 	acquirerInternalAlias := domain.AcquirerInternalAccountAlias(sale.Acquirer)
 

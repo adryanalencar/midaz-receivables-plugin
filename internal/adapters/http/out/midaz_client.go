@@ -35,6 +35,9 @@ func NewMidazClient(cfg *bootstrap.Config, httpClient *http.Client) *MidazClient
 // EnsureClearingAccount verifies or provisions the universal @external/BRL:universal account in Midaz.
 func (c *MidazClient) EnsureClearingAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
 	alias := domain.UniversalFiatClearingAccount
+	if c.cfg != nil && c.cfg.MidazClearingAccountAlias != "" {
+		alias = c.cfg.MidazClearingAccountAlias
+	}
 
 	exists, err := c.CheckAccountExists(ctx, organizationID, ledgerID, alias)
 	if err != nil {

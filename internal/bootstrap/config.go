@@ -33,6 +33,7 @@ type Config struct {
 	MidazTransactionURL string `env:"MIDAZ_TRANSACTION_URL" default:"http://localhost:3001"`
 	MidazOrganizationID string `env:"MIDAZ_ORGANIZATION_ID"`
 	MidazLedgerID       string `env:"MIDAZ_LEDGER_ID"`
+	MidazClearingAccountAlias string `env:"MIDAZ_CLEARING_ACCOUNT_ALIAS" default:"@external/BRL:universal"`
 	MidazAuthToken      string `env:"MIDAZ_AUTH_TOKEN" default:""`
 
 	// Matcher 6 Reconciliation Settings (:4018)
