@@ -22,6 +22,7 @@ func (h *EnsureAcquirerAccountsHandler) Execute(ctx context.Context, organizatio
 	acquirers := []domain.AcquirerType{
 		domain.AcquirerSumUp,
 		domain.AcquirerPagBank,
+		domain.AcquirerAditum,
 	}
 
 	// 1. Ensure universal external fiat account: @external/BRL:universal

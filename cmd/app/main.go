@@ -9,6 +9,7 @@ import (
 	httpOut "github.com/LerianStudio/midaz-plugin-receivables/internal/adapters/http/out"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/adapters/postgres"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/adapters/providers"
+	"github.com/LerianStudio/midaz-plugin-receivables/internal/adapters/providers/aditum"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/adapters/providers/pagbank"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/adapters/providers/sumup"
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
@@ -66,11 +67,12 @@ func main() {
 		logger.Infof("AES-256-GCM credentials encryption initialized")
 	}
 
-	// 7. Acquirer Providers Factory (SumUp, PagBank)
+	// 7. Acquirer Providers Factory (SumUp, PagBank, Aditum)
 	providerFactory := providers.NewFactory()
 	providerFactory.Register(sumup.NewAdapter("", nil))
 	providerFactory.Register(pagbank.NewAdapter("", nil))
-	logger.Infof("Registered acquirer provider adapters: SUMUP, PAGBANK")
+	providerFactory.Register(aditum.NewAdapter("", "", nil))
+	logger.Infof("Registered acquirer provider adapters: SUMUP, PAGBANK, ADITUM")
 
 	// 8. Midaz Ledger Core Client & Clearing Account Verification
 	midazClient := httpOut.NewMidazClient(cfg, nil)

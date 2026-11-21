@@ -71,6 +71,7 @@ func NewRouter(
 	if acquirerWebhookHandler != nil {
 		webhooks.Post("/sumup/:connection_id", acquirerWebhookHandler.HandleSumUpWebhook)
 		webhooks.Post("/pagbank/:connection_id", acquirerWebhookHandler.HandlePagBankWebhook)
+		webhooks.Post("/aditum/:connection_id", acquirerWebhookHandler.HandleAditumWebhook)
 	}
 
 	return app

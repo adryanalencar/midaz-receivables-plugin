@@ -46,6 +46,11 @@ func (h *AcquirerWebhookHandler) HandlePagBankWebhook(c *fiber.Ctx) error {
 	return h.handleAcquirerWebhook(c, domain.AcquirerPagBank)
 }
 
+// HandleAditumWebhook processes incoming Aditum charge webhooks.
+func (h *AcquirerWebhookHandler) HandleAditumWebhook(c *fiber.Ctx) error {
+	return h.handleAcquirerWebhook(c, domain.AcquirerAditum)
+}
+
 func (h *AcquirerWebhookHandler) handleAcquirerWebhook(c *fiber.Ctx, acquirer domain.AcquirerType) error {
 	connID := c.Params("connection_id")
 

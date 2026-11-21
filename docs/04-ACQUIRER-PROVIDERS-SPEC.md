@@ -164,3 +164,35 @@ type WebhookEvent struct {
 	Payout    *PayoutSchedule `json:"payout,omitempty"`
 }
 ```
+
+---
+
+## 4. Aditum Provider Specification
+
+### 4.1. Credentials Schema
+Stored in `acquirer_connections.credentials_encrypted`:
+```json
+{
+  "merchant_code": "01948df2-aditum-merchant-uuid",
+  "token": "aditum_merchant_token_secret",
+  "webhook_secret": "optional_webhook_basic_auth_token",
+  "additional_properties": {
+    "merchant_id": "01948df2-aditum-merchant-uuid",
+    "merchant_credential": "12345678000195"
+  }
+}
+```
+
+### 4.2. Webhook Routing
+* **Endpoint:** `POST /v1/webhooks/aditum/:connection_id`
+* Authenticated using Basic Auth (HMAC constant-time verification) or token matching against `token` / `webhook_secret`.
+
+### 4.3. Core Endpoints
+1. **Charges & Transactions:**
+   - Portal API: `GET /v1/Charges`
+   - **Headers:** `merchantId: <merchant_code>`, `Authorization: Bearer <token>`
+   - **Query Parameters:** `pageSize=50`, `currentPage=1`, `startDate=...`, `endDate=...`
+2. **EDI Layout 3.2 Settlement Reconciliation:**
+   - Ingests Entrepay/Aditum `ArquivoDoDia` files.
+   - Parses fixed-width `CV` records to extract settlement dates, gross amounts, MDR fees, and net settlement values per installment.
+
