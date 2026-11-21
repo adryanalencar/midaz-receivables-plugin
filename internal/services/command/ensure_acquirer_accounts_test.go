@@ -14,6 +14,7 @@ func TestEnsureAcquirerAccountsHandler_Execute(t *testing.T) {
 	client.On("EnsureClearingAccount", mock.Anything, "org_1", "led_1", domain.AcquirerSumUp).Return("@external/BRL:universal", nil)
 	client.On("EnsureAcquirerInternalAccount", mock.Anything, "org_1", "led_1", domain.AcquirerSumUp).Return("@acquirer/sumup", nil)
 	client.On("EnsureAcquirerInternalAccount", mock.Anything, "org_1", "led_1", domain.AcquirerPagBank).Return("@acquirer/pagbank", nil)
+	client.On("EnsureAcquirerInternalAccount", mock.Anything, "org_1", "led_1", domain.AcquirerAditum).Return("@acquirer/aditum", nil)
 
 	handler := NewEnsureAcquirerAccountsHandler(client)
 	err := handler.Execute(context.Background(), "org_1", "led_1")

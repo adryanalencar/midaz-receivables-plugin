@@ -46,7 +46,7 @@ func (h *ManifestHandler) GetManifest(c *fiber.Ctx) error {
 			},
 		},
 		"configuration": fiber.Map{
-			"supportedAcquirers":   []string{"SUMUP", "PAGBANK"},
+			"supportedAcquirers":   []string{"SUMUP", "PAGBANK", "ADITUM"},
 			"matcherEngineVersion": "6.0.0-beta.1",
 			"pluginHost":           h.cfg.PluginHost,
 		},

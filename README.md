@@ -8,13 +8,13 @@ An enterprise-grade plugin for the **[Midaz Ledger](https://github.com/LerianStu
 
 Fintechs, marketplaces, and merchant aggregators operating across multiple business entities, merchant tenants, and corporate tax IDs (CNPJs) face two critical challenges:
 
-1. **Multi-Tenant Acquirer Credential Isolation:** Each merchant possesses separate credentials with payment acquirers (e.g., SumUp, PagBank). A single merchant may operate across multiple acquirers simultaneously. The platform must provision a designated **Receivables Account** in Midaz for each merchant and dynamically associate multiple isolated **Acquirer Connections** to that specific account.
+1. **Multi-Tenant Acquirer Credential Isolation:** Each merchant possesses separate credentials with payment acquirers (e.g., SumUp, PagBank, Aditum). A single merchant may operate across multiple acquirers simultaneously. The platform must provision a designated **Receivables Account** in Midaz for each merchant and dynamically associate multiple isolated **Acquirer Connections** to that specific account.
 2. **The Double-Credit Dilemma:** When a customer buys via credit card (D+0), the merchant earns an accrued future credit right. If this credit right is booked in the ledger, and 30 days later when the acquirer deposits money into the merchant's bank account an Open Finance sync credits the account again, the merchant's balance is **duplicated**.
 
 **The Solution:**
 This plugin acts as the central bridge between **Card Acquirers**, **Midaz Ledger**, **Plugin Open Finance**, and **Matcher 6**:
 * **Receivables Account Provisioning:** Provisions merchant receivables accounts (`@<alias>/receivables`) in Midaz and allows binding multiple acquirer credentials to them (1 Account : $N$ Connections).
-* **D+0 (Sale Ingestion):** Ingests card sales from SumUp/PagBank and books them into `@<alias>/receivables` counterbalanced by universal clearing accounts (`@external/acquirer_<name>`).
+* **D+0 (Sale Ingestion):** Ingests card sales from SumUp/PagBank/Aditum and books them into `@<alias>/receivables` counterbalanced by universal clearing accounts (`@external/acquirer_<name>`).
 * **D+X (Settlement Day):** When the bank deposit arrives, `plugin-openfinance` intercepts the credit and routes it to **Matcher 6** as Source B instead of posting a direct deposit.
 * **Matcher 6 (Reconciliation):** Matches the expected receivable (Source A) with the real bank statement credit (Source B).
 * **Midaz Settlement (Double-Entry Extinguishment):** Upon Matcher 6 approval, this plugin executes an atomic transfer in Midaz:
@@ -30,6 +30,7 @@ flowchart TD
     subgraph Acquirers["1. Payment Acquirers (Multi-Tenant)"]
         SU["SumUp REST APIs & Webhooks<br/>(Merchant A Credentials)"]
         PB["PagBank REST APIs & Webhooks<br/>(Merchant A Credentials)"]
+        AD["Aditum REST APIs, EDI 3.2 & Webhooks<br/>(Merchant A Credentials)"]
     end
 
     subgraph ReceivablesPlugin["2. Midaz Plugin: Receivables (Port 8082)"]

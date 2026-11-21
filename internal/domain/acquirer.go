@@ -14,6 +14,7 @@ type AcquirerType string
 const (
 	AcquirerSumUp   AcquirerType = "SUMUP"
 	AcquirerPagBank AcquirerType = "PAGBANK"
+	AcquirerAditum  AcquirerType = "ADITUM"
 )
 
 func (a AcquirerType) String() string {
