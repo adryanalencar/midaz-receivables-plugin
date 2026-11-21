@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/LerianStudio/midaz-plugin-receivables/internal/bootstrap"
@@ -89,6 +90,62 @@ func (c *MidazClient) CheckAccountExists(ctx context.Context, organizationID, le
 
 	body, _ := io.ReadAll(resp.Body)
 	return false, fmt.Errorf("midaz: unexpected check account status HTTP %d: %s", resp.StatusCode, string(body))
+}
+
+// ListExternalAccounts queries Midaz onboarding and filters accounts with type="external".
+func (c *MidazClient) ListExternalAccounts(ctx context.Context, organizationID, ledgerID string) ([]domain.ExternalAccount, error) {
+	url := fmt.Sprintf("%s/v1/organizations/%s/ledgers/%s/accounts?limit=100",
+		c.cfg.MidazOnboardingURL, organizationID, ledgerID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("midaz: failed creating list accounts request: %w", err)
+	}
+	c.setHeaders(req)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("midaz: list accounts request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("midaz: list accounts rejected (HTTP %d): %s", resp.StatusCode, string(body))
+	}
+
+	var pageResp struct {
+		Items []struct {
+			ID        string  `json:"id"`
+			Name      string  `json:"name"`
+			Alias     *string `json:"alias"`
+			Type      string  `json:"type"`
+			AssetCode string  `json:"assetCode"`
+		} `json:"items"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&pageResp); err != nil {
+		return nil, fmt.Errorf("midaz: failed parsing accounts response: %w", err)
+	}
+
+	var externalAccounts []domain.ExternalAccount
+	for _, item := range pageResp.Items {
+		if strings.EqualFold(item.Type, "external") {
+			alias := ""
+			if item.Alias != nil {
+				alias = *item.Alias
+			}
+			externalAccounts = append(externalAccounts, domain.ExternalAccount{
+				ID:        item.ID,
+				Alias:     alias,
+				Name:      item.Name,
+				AssetCode: item.AssetCode,
+				Type:      item.Type,
+			})
+		}
+	}
+
+	return externalAccounts, nil
 }
 
 // CreateAccount provisions an account in Midaz, supporting native parentAccountId hierarchy.

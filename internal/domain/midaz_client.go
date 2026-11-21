@@ -50,8 +50,19 @@ type MultiSourceTransactionPayload struct {
 	Metadata                 map[string]any              `json:"metadata"`
 }
 
+// ExternalAccount represents an external clearing account in Midaz.
+type ExternalAccount struct {
+	ID        string `json:"id"`
+	Alias     string `json:"alias"`
+	Name      string `json:"name"`
+	AssetCode string `json:"assetCode"`
+	Type      string `json:"type"`
+}
+
 // IMidazLedgerClient defines the outbound port to Midaz Onboarding and Transaction APIs.
 type IMidazLedgerClient interface {
+	// ListExternalAccounts retrieves all accounts with type="external" from Midaz.
+	ListExternalAccounts(ctx context.Context, organizationID, ledgerID string) ([]ExternalAccount, error)
 	// EnsureClearingAccount verifies or creates the universal @external/BRL:universal account.
 	EnsureClearingAccount(ctx context.Context, organizationID, ledgerID string, acquirer AcquirerType) (string, error)
 

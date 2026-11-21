@@ -82,6 +82,39 @@ func (m *MockRepo) GetReceivablesCalendar(ctx context.Context, filter domain.Cal
 	return args.Get(0).([]domain.Installment), args.Error(1)
 }
 
+type MockMidazClient struct {
+	mock.Mock
+}
+
+func (m *MockMidazClient) EnsureClearingAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
+	return "", nil
+}
+func (m *MockMidazClient) EnsureAcquirerInternalAccount(ctx context.Context, organizationID, ledgerID string, acquirer domain.AcquirerType) (string, error) {
+	return "", nil
+}
+func (m *MockMidazClient) CreateAccount(ctx context.Context, organizationID, ledgerID, alias, name, accountType string, parentAccountID *string) (string, error) {
+	return "", nil
+}
+func (m *MockMidazClient) CheckAccountExists(ctx context.Context, organizationID, ledgerID, alias string) (bool, error) {
+	return false, nil
+}
+func (m *MockMidazClient) PostTransaction(ctx context.Context, organizationID, ledgerID string, tx *domain.MidazTransactionPayload) (string, error) {
+	return "", nil
+}
+func (m *MockMidazClient) CommitTransaction(ctx context.Context, organizationID, ledgerID, transactionID string) error {
+	return nil
+}
+func (m *MockMidazClient) PostMultiSourceTransaction(ctx context.Context, organizationID, ledgerID string, tx *domain.MultiSourceTransactionPayload) (string, error) {
+	return "", nil
+}
+func (m *MockMidazClient) ListExternalAccounts(ctx context.Context, organizationID, ledgerID string) ([]domain.ExternalAccount, error) {
+	args := m.Called(ctx, organizationID, ledgerID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.ExternalAccount), args.Error(1)
+}
+
 func TestRouter_HealthAndManifest(t *testing.T) {
 	cfg := &bootstrap.Config{
 		PluginHost: "http://localhost:8082",
@@ -89,7 +122,7 @@ func TestRouter_HealthAndManifest(t *testing.T) {
 
 	manifestHandler := NewManifestHandler(cfg)
 	repo := new(MockRepo)
-	accountHandler := NewAccountHandler(cfg, repo, nil, nil)
+	accountHandler := NewAccountHandler(cfg, repo, nil, nil, nil)
 	connectionHandler := NewConnectionHandler(cfg, repo, nil, nil, nil, nil)
 
 	app := NewRouter(manifestHandler, accountHandler, connectionHandler, nil, nil)
@@ -129,11 +162,35 @@ func TestRouter_AccountEndpoints(t *testing.T) {
 	}
 
 	repo := new(MockRepo)
+	midazClient := new(MockMidazClient)
 	manifestHandler := NewManifestHandler(cfg)
-	accountHandler := NewAccountHandler(cfg, repo, nil, nil)
+	accountHandler := NewAccountHandler(cfg, repo, nil, nil, midazClient)
 	connectionHandler := NewConnectionHandler(cfg, repo, nil, nil, nil, nil)
 
 	app := NewRouter(manifestHandler, accountHandler, connectionHandler, nil, nil)
+
+	t.Run("GET /v1/external-accounts", func(t *testing.T) {
+		midazClient.On("ListExternalAccounts", mock.Anything, "org_1", "led_1").
+			Return([]domain.ExternalAccount{
+				{ID: "ext_1", Alias: "@external/BRL:universal", Name: "Universal Fiat Clearing", AssetCode: "BRL", Type: "external"},
+				{ID: "ext_2", Alias: "@external/BRL:custom", Name: "Custom Clearing", AssetCode: "BRL", Type: "external"},
+			}, nil)
+
+		req := httptest.NewRequest(http.MethodGet, "/v1/external-accounts", nil)
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		var res struct {
+			Items []domain.ExternalAccount `json:"items"`
+			Count int                      `json:"count"`
+		}
+		err = json.NewDecoder(resp.Body).Decode(&res)
+		require.NoError(t, err)
+		assert.Len(t, res.Items, 2)
+		assert.Equal(t, 2, res.Count)
+		assert.Equal(t, "@external/BRL:universal", res.Items[0].Alias)
+	})
 
 	t.Run("GET /v1/accounts/receivables - List", func(t *testing.T) {
 		repo.On("ListReceivablesAccounts", mock.Anything).
@@ -176,7 +233,7 @@ func TestRouter_MatcherWebhookEndpoint(t *testing.T) {
 
 	repo := new(MockRepo)
 	manifestHandler := NewManifestHandler(cfg)
-	accountHandler := NewAccountHandler(cfg, repo, nil, nil)
+	accountHandler := NewAccountHandler(cfg, repo, nil, nil, nil)
 	connectionHandler := NewConnectionHandler(cfg, repo, nil, nil, nil, nil)
 
 	matcherHandler := NewMatcherWebhookHandler(cfg, nil)

@@ -180,4 +180,12 @@ func (m *MockMidazClient) PostMultiSourceTransaction(ctx context.Context, organi
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockMidazClient) ListExternalAccounts(ctx context.Context, organizationID, ledgerID string) ([]domain.ExternalAccount, error) {
+	args := m.Called(ctx, organizationID, ledgerID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.ExternalAccount), args.Error(1)
+}
+
 

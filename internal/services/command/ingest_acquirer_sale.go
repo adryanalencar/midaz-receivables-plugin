@@ -82,7 +82,10 @@ func (h *IngestAcquirerSaleHandler) Execute(ctx context.Context, input IngestAcq
 	// 3. Post D+0 two-step double-entry in Midaz for each installment:
 	//    Step A: Fund the internal acquirer account from universal external fiat (immediate)
 	//    Step B: Allocate from internal acquirer account to receivables account as PENDING (on-hold)
-	universalClearingAlias := domain.UniversalFiatClearingAccount
+	universalClearingAlias := acc.ExternalAccountAlias
+	if universalClearingAlias == "" {
+		universalClearingAlias = domain.UniversalFiatClearingAccount
+	}
 	acquirerInternalAlias := domain.AcquirerInternalAccountAlias(sale.Acquirer)
 
 	for i := range sale.Installments {

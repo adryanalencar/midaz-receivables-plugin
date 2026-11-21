@@ -112,7 +112,7 @@ func main() {
 
 	// 11. Inbound HTTP Adapters & Handlers
 	manifestHandler := httpIn.NewManifestHandler(cfg)
-	accountHandler := httpIn.NewAccountHandler(cfg, repo, createAccountHandler, calendarHandler)
+	accountHandler := httpIn.NewAccountHandler(cfg, repo, createAccountHandler, calendarHandler, midazClient)
 	connectionHandler := httpIn.NewConnectionHandler(cfg, repo, createConnectionHandler, ingestSaleHandler, providerFactory, encryptor)
 	matcherWebhookHandler := httpIn.NewMatcherWebhookHandler(cfg, settleMatchedHandler)
 	acquirerWebhookHandler := httpIn.NewAcquirerWebhookHandler(cfg, repo, ingestSaleHandler, providerFactory, encryptor)

@@ -43,7 +43,8 @@ func TestCreateReceivablesAccountHandler_Execute(t *testing.T) {
 				acc.ParentAccountID != nil && *acc.ParentAccountID == parentID &&
 				acc.MatcherContextID == "ctx_merchant_a" &&
 				acc.Name == "Merchant Alpha" &&
-				acc.CheckingAccountAlias == "@merchant_a/checking"
+				acc.CheckingAccountAlias == "@merchant_a/checking" &&
+				acc.ExternalAccountAlias == "@external/BRL:custom"
 		})).Return(nil)
 
 		handler := NewCreateReceivablesAccountHandler(repo, midazClient, matcherClient)
@@ -57,6 +58,7 @@ func TestCreateReceivablesAccountHandler_Execute(t *testing.T) {
 			Name:                        "Merchant Alpha",
 			CNPJ:                        "12345678000199",
 			DefaultCheckingAccountAlias: "merchant_a/checking",
+			ExternalAccountAlias:        "@external/BRL:custom",
 		})
 
 		require.NoError(t, err)
@@ -64,6 +66,7 @@ func TestCreateReceivablesAccountHandler_Execute(t *testing.T) {
 		assert.Equal(t, "@merchant_a/receivables/mdr_revenue", acc.MDRRevenueAccountAlias)
 		assert.Equal(t, "@merchant_a/receivables/fees", acc.FeeAccountAlias)
 		assert.Equal(t, "@merchant_a/checking", acc.CheckingAccountAlias)
+		assert.Equal(t, "@external/BRL:custom", acc.ExternalAccountAlias)
 		assert.Equal(t, "ctx_merchant_a", acc.MatcherContextID)
 		midazClient.AssertExpectations(t)
 		matcherClient.AssertExpectations(t)
