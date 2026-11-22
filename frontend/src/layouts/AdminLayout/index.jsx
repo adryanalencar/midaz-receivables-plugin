@@ -19,20 +19,14 @@ import useConfig from '@/hooks/useConfig';
 /***************************  ADMIN LAYOUT  ***************************/
 
 export default function DashboardLayout() {
-  const { menuMasterLoading } = useGetMenuMaster();
-  const {
-    state: { miniDrawer }
-  } = useConfig();
+  const { menuMaster, menuMasterLoading } = useGetMenuMaster();
+  const drawerOpen = menuMaster?.isDashboardDrawerOpened ?? true;
+  const downMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
-  const downXL = useMediaQuery((theme) => theme.breakpoints.down('xl'));
-
-  // set drawer media and `miniDrawer` config wise
   useEffect(() => {
-    if (!miniDrawer) {
-      handlerDrawerOpen(!downXL);
-    }
+    handlerDrawerOpen(!downMD);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [downXL]);
+  }, [downMD]);
 
   if (menuMasterLoading) return <Loader />;
 
@@ -40,7 +34,19 @@ export default function DashboardLayout() {
     <Stack direction="row" sx={{ width: 1, minHeight: '100vh', bgcolor: '#F3F3F3' }}>
       <Header />
       <Drawer />
-      <Box component="main" sx={{ width: `calc(100% - ${DRAWER_WIDTH}px)`, flexGrow: 1, p: { xs: 2, sm: 3 }, bgcolor: '#F3F3F3', minHeight: '100vh' }}>
+      <Box
+        component="main"
+        sx={{
+          width: {
+            xs: '100%',
+            md: drawerOpen ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%'
+          },
+          flexGrow: 1,
+          p: { xs: 2, sm: 3 },
+          bgcolor: '#F3F3F3',
+          minHeight: '100vh'
+        }}
+      >
         <Toolbar sx={{ minHeight: { xs: 54, sm: 46, md: 76 } }} />
         <Box
           sx={{

@@ -30,7 +30,7 @@ export default function AuthLayout() {
           <Stack sx={{ alignItems: 'center', gap: 2 }}>
             <LogoMain />
             <Typography variant="body2" color="grey.700" align="center" sx={{ maxWidth: 400 }}>
-              SaaS platform for seamless data management and user insights. Unlock growth with real-time analytics and flexible features.
+              Plataforma financeira de alta precisão para conciliação bancária, gestão de maquininhas e recebíveis integrada ao Midaz Ledger.
             </Typography>
           </Stack>
           <Box sx={{ pt: 6, pl: 6, height: 'calc(100% - 114px)' }}>

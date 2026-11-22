@@ -34,7 +34,7 @@ export default function AccountsView() {
   const [accountAlias, setAccountAlias] = useState('');
   const [checkingAlias, setCheckingAlias] = useState('');
   const [accountName, setAccountName] = useState('');
-  const [clearingAlias, setClearingAlias] = useState('@external/acquirer_sumup');
+  const [clearingAlias, setClearingAlias] = useState('SumUp Pagamentos');
 
   const loadAccounts = async () => {
     const data = await receivablesApi.getAccounts();
@@ -84,10 +84,10 @@ export default function AccountsView() {
               mb: 0.5
             }}
           >
-            Receivables Accounts &amp; Clearing
+            Carteiras de Recebimento de Vendas
           </Typography>
           <Typography variant="body2" sx={{ color: '#919EAB' }}>
-            Managed Midaz Ledger receivables wallets and external clearing counterbalances
+            Controle de saldo a receber de cartões e contas correntes bancárias associadas
           </Typography>
         </Box>
 
@@ -103,177 +103,168 @@ export default function AccountsView() {
             '&:hover': { bgcolor: '#000000' }
           }}
         >
-          Provision Account
+          Cadastrar Nova Carteira
         </Button>
       </Stack>
 
-      {/* Account Cards */}
+      {/* Grid of Accounts (3 cards per row on desktop/laptop) */}
       <Grid container spacing={3}>
         {accounts.map((acc) => (
-          <Grid item xs={12} md={6} key={acc.id}>
-            <BentoCard variant="white" sx={{ p: 3.5, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={acc.id}>
+            <BentoCard
+              variant="white"
+              sx={{
+                p: 3.5,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}
+            >
               <Box>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
-                  <Box>
-                    <Typography
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box
                       sx={{
-                        fontFamily: "'Plus Jakarta Sans', sans-serif",
-                        fontSize: '18px',
+                        width: 44,
+                        height: 44,
+                        borderRadius: '12px',
+                        bgcolor: '#1D1D1D',
+                        color: '#F0FD63',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         fontWeight: 700,
-                        color: '#1D1D1D',
-                        letterSpacing: '-0.02em'
+                        fontSize: '13px'
                       }}
                     >
-                      {acc.name}
-                    </Typography>
-                    <Typography sx={{ color: '#919EAB', fontSize: '12px', mt: 0.25 }}>
-                      ID: <code>{acc.id}</code>
-                    </Typography>
-                  </Box>
+                      <IconWallet size={22} />
+                    </Box>
+                    <Box>
+                      <Typography
+                        sx={{
+                          fontFamily: "'Plus Jakarta Sans', sans-serif",
+                          fontWeight: 700,
+                          fontSize: '16px',
+                          color: '#1D1D1D'
+                        }}
+                      >
+                        {acc.name}
+                      </Typography>
+                      <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
+                        Carteira Ativa de Maquininhas
+                      </Typography>
+                    </Box>
+                  </Stack>
                   <StatusBadge variant="lime">
-                    {acc.status}
+                    Ativa
                   </StatusBadge>
                 </Stack>
 
-                {/* Double Entry Visualizer within card */}
-                <Box sx={{ p: 2, borderRadius: '16px', bgcolor: '#F3F3F3', mb: 3 }}>
-                  <Typography sx={{ fontSize: '11px', color: '#919EAB', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.5, fontWeight: 600 }}>
-                    Double-Entry Routing Pair
-                  </Typography>
-
-                  <Stack spacing={1.5}>
+                {/* Account Details Box */}
+                <Box sx={{ p: 2, borderRadius: '14px', bgcolor: '#F3F3F3', mb: 2.5 }}>
+                  <Stack spacing={1.2}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <IconWallet size={16} color="#1D1D1D" />
-                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1D1D1D' }}>
-                          Receivables Asset:
-                        </Typography>
+                        <IconBuildingBank size={15} color="#666666" />
+                        <Typography sx={{ fontSize: '12px', color: '#666666' }}>Conta de Depósito:</Typography>
                       </Stack>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1D1D1D', bgcolor: '#FFFFFF', px: 1.5, py: 0.25, borderRadius: '6px', border: '1px solid #E8E8E8' }}>
-                        {acc.account_alias}
+                      <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#1D1D1D' }}>
+                        Banco Itaú PJ
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <IconBuildingBank size={16} color="#1D1D1D" />
-                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1D1D1D' }}>
-                          Liquid Checking:
-                        </Typography>
+                        <IconArrowsExchange size={15} color="#666666" />
+                        <Typography sx={{ fontSize: '12px', color: '#666666' }}>Operadora Principal:</Typography>
                       </Stack>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1D1D1D', bgcolor: '#FFFFFF', px: 1.5, py: 0.25, borderRadius: '6px', border: '1px solid #E8E8E8' }}>
-                        {acc.checking_account_alias}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <IconArrowsExchange size={16} color="#1D1D1D" />
-                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1D1D1D' }}>
-                          Clearing Account:
-                        </Typography>
-                      </Stack>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#15803d', bgcolor: 'rgba(34, 197, 94, 0.08)', px: 1.5, py: 0.25, borderRadius: '6px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-                        {acc.clearing_account_alias || '@external/acquirer_sumup'}
+                      <Typography sx={{ fontSize: '12px', fontWeight: 600, color: '#15803d' }}>
+                        SumUp / Aditum
                       </Typography>
                     </Box>
                   </Stack>
                 </Box>
               </Box>
 
-              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 2, borderTop: '1px solid #E8E8E8' }}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ pt: 2, borderTop: '1px solid #E8E8E8' }}
+              >
                 <Box>
-                  <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>Pending Liquidity</Typography>
-                  <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#1D1D1D' }}>
-                    {formatCurrency(acc.metrics?.total_pending_net || 0)}
+                  <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>Saldo Bruto a Receber</Typography>
+                  <Typography sx={{ fontSize: '18px', fontWeight: 700, color: '#1D1D1D' }}>
+                    {formatCurrency(acc.balance)}
                   </Typography>
                 </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>Cleared to Checking</Typography>
-                  <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#15803d' }}>
-                    {formatCurrency(acc.metrics?.total_settled || 0)}
-                  </Typography>
-                </Box>
+
+                <StatusBadge variant="lime">
+                  100% Conciliado
+                </StatusBadge>
               </Stack>
             </BentoCard>
           </Grid>
         ))}
       </Grid>
 
-      {/* Provision Account Modal */}
+      {/* Create Account Modal */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
-        maxWidth="sm"
+        maxWidth="xs"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '24px',
-            p: 1.5,
-            bgcolor: '#FFFFFF',
-            border: '1px solid #E8E8E8',
-            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.08)'
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: '24px',
+              p: 1,
+              bgcolor: '#FFFFFF',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+            }
           }
         }}
       >
         <DialogTitle sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '18px' }}>
-          Provision Receivables Account
+          Cadastrar Nova Carteira de Recebíveis
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: '#919EAB', mb: 3 }}>
-            Registers a receivables wallet in Midaz Ledger linked to the merchant's checking balance and clearing account.
-          </Typography>
-
-          <Stack spacing={2.5}>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
-              label="Account Name"
-              placeholder="e.g. Gamma Electronics Receivables"
+              label="Nome Amigável da Carteira"
+              placeholder="Ex: Vendas Filial Centro"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             />
 
             <TextField
-              label="Receivables Account Alias"
-              placeholder="@merchant_alias/receivables"
+              label="Código Interno da Carteira"
+              placeholder="Ex: filial_centro_recebiveis"
               value={accountAlias}
               onChange={(e) => setAccountAlias(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             />
 
             <TextField
-              label="Liquid Checking Account Alias"
-              placeholder="@merchant_alias/checking"
+              label="Conta Corrente de Depósito"
+              placeholder="Ex: Banco Itaú Ag 0812 CC 18920-4"
               value={checkingAlias}
               onChange={(e) => setCheckingAlias(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-            />
-
-            <TextField
-              label="External Clearing Account"
-              placeholder="@external/acquirer_sumup"
-              value={clearingAlias}
-              onChange={(e) => setClearingAlias(e.target.value)}
-              helperText="Universal or custom clearing account in Midaz (counterbalance)"
-              fullWidth
-              size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             />
           </Stack>
         </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button
             onClick={() => setOpenModal(false)}
             sx={{ borderRadius: '9999px', color: '#666666' }}
           >
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="contained"
@@ -287,7 +278,7 @@ export default function AccountsView() {
               '&:hover': { bgcolor: '#000000' }
             }}
           >
-            Provision in Ledger
+            Criar Carteira
           </Button>
         </DialogActions>
       </Dialog>

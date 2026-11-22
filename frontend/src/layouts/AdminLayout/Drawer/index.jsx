@@ -19,7 +19,7 @@ import { DRAWER_WIDTH } from '@/config';
 export default function MainDrawer({ window }) {
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
-  const downLG = useMediaQuery((theme) => theme.breakpoints.down('lg'));
+  const downMD = useMediaQuery((theme) => theme.breakpoints.down('md'));
 
   // Define container for drawer when window is specified
   const container = window !== undefined ? () => window().document.body : undefined;
@@ -34,7 +34,7 @@ export default function MainDrawer({ window }) {
       <Drawer
         container={container}
         variant="temporary"
-        open={drawerOpen && downLG}
+        open={drawerOpen && downMD}
         onClose={() => handlerDrawerOpen(!drawerOpen)}
         slotProps={{
           paper: {
@@ -56,7 +56,7 @@ export default function MainDrawer({ window }) {
       </Drawer>
 
       {/* Permanent mini-drawer for large media */}
-      <Activity mode={!downLG ? 'visible' : 'hidden'}>
+      <Activity mode={!downMD ? 'visible' : 'hidden'}>
         <MiniDrawerStyled variant="permanent" open={drawerOpen}>
           {drawerHeader}
           <Divider sx={{ mx: 2, borderColor: 'rgba(255, 255, 255, 0.08)' }} />

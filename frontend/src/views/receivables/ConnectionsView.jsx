@@ -23,7 +23,6 @@ import {
   IconPlus,
   IconRefresh,
   IconPlugConnected,
-  IconWebhook,
   IconClock,
   IconKey,
   IconCheck
@@ -115,10 +114,10 @@ export default function ConnectionsView() {
               mb: 0.5
             }}
           >
-            Acquirer Connections
+            Maquininhas e Operadoras Conectadas
           </Typography>
           <Typography variant="body2" sx={{ color: '#919EAB' }}>
-            Multi-tenant credential isolation (1 Receivables Account : N Acquirer Connections)
+            Gestão de pontos de venda (POS), gateways e credenciais de operadoras integradas
           </Typography>
         </Box>
 
@@ -134,7 +133,7 @@ export default function ConnectionsView() {
             '&:hover': { bgcolor: '#000000' }
           }}
         >
-          Connect Acquirer
+          Conectar Nova Maquininha
         </Button>
       </Stack>
 
@@ -145,7 +144,7 @@ export default function ConnectionsView() {
           const isRecentlySynced = syncedFeedback === conn.id;
 
           return (
-            <Grid item xs={12} md={6} lg={4} key={conn.id}>
+            <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={conn.id}>
               <BentoCard
                 variant="white"
                 sx={{
@@ -153,7 +152,7 @@ export default function ConnectionsView() {
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  p: 3
+                  p: 3.5
                 }}
               >
                 <Box>
@@ -175,7 +174,7 @@ export default function ConnectionsView() {
                       {conn.acquirer_type.slice(0, 3)}
                     </Box>
                     <StatusBadge variant={conn.status === 'ACTIVE' ? 'lime' : 'neutral'}>
-                      {conn.status}
+                      {conn.status === 'ACTIVE' ? 'Conexão Ativa' : 'Pausado'}
                     </StatusBadge>
                   </Stack>
 
@@ -192,161 +191,133 @@ export default function ConnectionsView() {
                     {conn.display_name}
                   </Typography>
                   <Typography sx={{ color: '#919EAB', fontSize: '12px', mb: 2 }}>
-                    {conn.acquirer_type} Gateway Connection
+                    Operadora: {conn.acquirer_type}
                   </Typography>
 
                   <Stack spacing={1.5} sx={{ p: 2, borderRadius: '14px', bgcolor: '#F3F3F3', mb: 2.5 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconKey size={15} color="#919EAB" />
-                      <Typography sx={{ fontSize: '11px', color: '#666666' }}>
-                        Merchant ID: <strong>{conn.merchant_code}</strong>
+                      <Typography sx={{ fontSize: '12px', color: '#666666' }}>
+                        ID do Estabelecimento: <strong>{conn.merchant_code || '12345678000195'}</strong>
                       </Typography>
                     </Stack>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconClock size={15} color="#919EAB" />
-                      <Typography sx={{ fontSize: '11px', color: '#666666' }}>
-                        Sync Every: <strong>{conn.sync_interval_minutes} mins</strong>
-                      </Typography>
-                    </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <IconWebhook size={15} color="#919EAB" />
-                      <Typography
-                        sx={{
-                          fontSize: '11px',
-                          color: '#666666',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}
-                      >
-                        Webhook: {conn.webhook_url}
+                      <Typography sx={{ fontSize: '12px', color: '#666666' }}>
+                        Sincronização: a cada 60 min (Automática)
                       </Typography>
                     </Stack>
                   </Stack>
                 </Box>
 
-                <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ pt: 1, borderTop: '1px solid #E8E8E8' }}>
-                  <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
-                    Last sync: {new Date(conn.last_sync_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </Typography>
-
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => handleSync(conn.id)}
-                    disabled={isSyncing}
-                    startIcon={
-                      isSyncing ? (
-                        <CircularProgress size={14} color="inherit" />
-                      ) : isRecentlySynced ? (
-                        <IconCheck size={14} color="#15803d" />
-                      ) : (
-                        <IconRefresh size={14} />
-                      )
-                    }
-                    sx={{
-                      borderRadius: '9999px',
-                      color: isRecentlySynced ? '#15803d' : '#1D1D1D',
-                      borderColor: isRecentlySynced ? 'rgba(34, 197, 94, 0.4)' : '#E8E8E8',
-                      bgcolor: isRecentlySynced ? 'rgba(34, 197, 94, 0.08)' : '#FFFFFF',
-                      fontSize: '11px',
-                      py: 0.5,
-                      px: 2,
-                      '&:hover': { bgcolor: '#F3F3F3' }
-                    }}
-                  >
-                    {isSyncing ? 'Syncing...' : isRecentlySynced ? 'Synced!' : 'Sync Now'}
-                  </Button>
-                </Stack>
+                <Button
+                  variant="outlined"
+                  onClick={() => handleSync(conn.id)}
+                  disabled={isSyncing}
+                  fullWidth
+                  startIcon={
+                    isSyncing ? (
+                      <CircularProgress size={14} color="inherit" />
+                    ) : isRecentlySynced ? (
+                      <IconCheck size={14} color="#15803d" />
+                    ) : (
+                      <IconRefresh size={14} />
+                    )
+                  }
+                  sx={{
+                    borderRadius: '9999px',
+                    borderColor: isRecentlySynced ? 'rgba(34, 197, 94, 0.4)' : '#E8E8E8',
+                    color: isRecentlySynced ? '#15803d' : '#1D1D1D',
+                    bgcolor: isRecentlySynced ? 'rgba(34, 197, 94, 0.08)' : '#FFFFFF',
+                    fontSize: '12px',
+                    py: 0.75,
+                    '&:hover': { bgcolor: '#F3F3F3' }
+                  }}
+                >
+                  {isSyncing ? 'Sincronizando vendas...' : isRecentlySynced ? 'Vendas Atualizadas!' : 'Sincronizar Vendas Agora'}
+                </Button>
               </BentoCard>
             </Grid>
           );
         })}
       </Grid>
 
-      {/* Connect Acquirer Modal */}
+      {/* Modal - Conectar Maquininha */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
-        maxWidth="sm"
+        maxWidth="xs"
         fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: '24px',
-            p: 1.5,
-            bgcolor: '#FFFFFF',
-            border: '1px solid #E8E8E8',
-            boxShadow: '0 24px 48px rgba(0, 0, 0, 0.08)'
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: '24px',
+              p: 1,
+              bgcolor: '#FFFFFF',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+            }
           }
         }}
       >
         <DialogTitle sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '18px' }}>
-          Connect New Acquirer
+          Conectar Nova Maquininha
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: '#919EAB', mb: 3 }}>
-            Provision isolated credentials for a payment acquirer bound to this Receivables Account.
-          </Typography>
-
-          <Stack spacing={2.5}>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
               select
-              label="Acquirer Provider"
+              label="Operadora / Gateway"
               value={acquirerType}
               onChange={(e) => setAcquirerType(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             >
-              <MenuItem value="SUMUP">SumUp (REST APIs &amp; Webhooks)</MenuItem>
-              <MenuItem value="ADITUM">Aditum (Multi-Acquirer Gateway &amp; EDI 3.2)</MenuItem>
-              <MenuItem value="PAGBANK">PagBank (REST APIs &amp; Webhooks)</MenuItem>
+              <MenuItem value="SUMUP">SumUp</MenuItem>
+              <MenuItem value="ADITUM">Aditum</MenuItem>
+              <MenuItem value="PAGBANK">PagBank (PagSeguro)</MenuItem>
+              <MenuItem value="STONE">Stone Pagamentos</MenuItem>
             </TextField>
 
             <TextField
-              label="Display Name / Terminal Tag"
-              placeholder="e.g. Aditum Gateway SP Terminal"
+              label="Identificação do Ponto de Venda"
+              placeholder="Ex: Maquininha Balcão Filial 1"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             />
 
             <TextField
-              label="Merchant Code / ID"
-              placeholder="e.g. ADT-98214 or SU-BRA-99120"
+              label="Código do Estabelecimento (Merchant ID)"
+              placeholder="Ex: 01948df2-aditum-merchant-uuid"
               value={merchantCode}
               onChange={(e) => setMerchantCode(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             />
 
             <TextField
-              label="API Key / Secret Token"
+              label="Token de Acesso / API Key"
+              placeholder="Chave secreta fornecida pela adquirente"
               type="password"
-              placeholder="Enter secure API secret"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               fullWidth
               size="small"
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
             />
           </Stack>
         </DialogContent>
-
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button
             onClick={() => setOpenModal(false)}
             sx={{ borderRadius: '9999px', color: '#666666' }}
           >
-            Cancel
+            Cancelar
           </Button>
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!displayName || !merchantCode || loading}
+            disabled={loading || !displayName || !merchantCode}
             sx={{
               borderRadius: '9999px',
               bgcolor: '#1D1D1D',
@@ -355,7 +326,7 @@ export default function ConnectionsView() {
               '&:hover': { bgcolor: '#000000' }
             }}
           >
-            Save Connection
+            Salvar Conexão
           </Button>
         </DialogActions>
       </Dialog>

@@ -17,14 +17,16 @@ import { IconChevronDown } from '@tabler/icons-react';
 export default function NavCard({ isMiniDrawer }) {
   const { userData } = useCurrentUser();
 
-  const name = userData?.name || 'Midaz User';
-  const email = userData?.email || 'user@midaz.io';
+  const name = userData && Object.keys(userData).length > 0 && userData.firstname
+    ? `${userData.firstname} ${userData.lastname}`.trim()
+    : 'Adryan Alencar';
+  const email = userData?.email || 'adryan@midaz.io';
   const initials = name
     .split(' ')
     .map((n) => n[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase();
+    .toUpperCase() || 'AA';
 
   if (isMiniDrawer) {
     return (

@@ -28,12 +28,12 @@ export default function Copyright() {
           © 2024 {branding.brandName}
         </Typography>
         <Divider orientation="vertical" flexItem sx={copyrightSX} />
-        <Link {...linkProps} href="https://saasable.io/privacy-policy">
-          Privacy Policy
+        <Link {...linkProps} href="https://midaz.io">
+          Privacidade
         </Link>
         <Divider orientation="vertical" flexItem />
-        <Link {...linkProps} href="https://mui.com/store/terms/">
-          Terms & Conditions
+        <Link {...linkProps} href="https://midaz.io">
+          Termos de Uso
         </Link>
       </Stack>
 

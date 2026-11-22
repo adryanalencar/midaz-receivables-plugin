@@ -125,7 +125,7 @@ export default function SearchBar() {
     <>
       <OutlinedInput
         inputRef={inputRef}
-        placeholder="Search here"
+        placeholder="Buscar no Midaz..."
         startAdornment={
           <InputAdornment position="start">
             <IconSearch />

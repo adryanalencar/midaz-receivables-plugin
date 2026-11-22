@@ -29,9 +29,9 @@ import { IconEye, IconEyeOff } from '@tabler/icons-react';
 
 // Mock user credentials
 const userCredentials = [
-  { title: 'Super Admin', email: 'super_admin@saasable.io', password: 'Super@123' },
-  { title: 'Admin', email: 'admin@saasable.io', password: 'Admin@123' },
-  { title: 'User', email: 'user@saasable.io', password: 'User@123' }
+  { title: 'Administrador', email: 'adryan@midaz.io', password: 'Admin@123' },
+  { title: 'Financeiro', email: 'financeiro@midaz.io', password: 'Admin@123' },
+  { title: 'Auditor', email: 'auditoria@midaz.io', password: 'User@123' }
 ];
 
 function isChildObjectContained(parent, child) {
@@ -55,7 +55,7 @@ export default function AuthLogin({ inputSx }) {
     handleSubmit,
     reset,
     formState: { errors }
-  } = useForm({ defaultValues: { email: 'super_admin@saasable.io', password: 'Super@123' } });
+  } = useForm({ defaultValues: { email: 'adryan@midaz.io', password: 'Admin@123' } });
 
   const formData = watch();
 
@@ -100,7 +100,7 @@ export default function AuthLogin({ inputSx }) {
             <InputLabel>Email</InputLabel>
             <OutlinedInput
               {...register('email', emailSchema)}
-              placeholder="example@saasable.io"
+              placeholder="adryan@midaz.io"
               fullWidth
               error={Boolean(errors.email)}
               sx={inputSx}

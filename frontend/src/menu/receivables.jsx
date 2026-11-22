@@ -1,32 +1,32 @@
 const receivablesMenu = {
   id: 'group-receivables',
-  title: 'Receivables & Settlement',
+  title: 'Gestão de Recebíveis',
   type: 'group',
   children: [
     {
       id: 'receivables-agenda',
-      title: 'Receivables Agenda',
+      title: 'Agenda de Vendas',
       type: 'item',
       url: '/receivables',
       icon: 'IconCalendarEvent'
     },
     {
       id: 'acquirer-connections',
-      title: 'Acquirer Connections',
+      title: 'Maquininhas e POS',
       type: 'item',
       url: '/receivables/connections',
       icon: 'IconCreditCard'
     },
     {
       id: 'matcher-reconciliation',
-      title: 'Matcher Reconciliation',
+      title: 'Conciliação Bancária',
       type: 'item',
       url: '/receivables/reconciliation',
       icon: 'IconArrowsShuffle'
     },
     {
       id: 'receivables-accounts',
-      title: 'Accounts & Clearing',
+      title: 'Carteiras de Recebimento',
       type: 'item',
       url: '/receivables/accounts',
       icon: 'IconBuildingBank'

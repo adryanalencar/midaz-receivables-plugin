@@ -22,7 +22,8 @@ import {
   IconArrowUpRight,
   IconSearch,
   IconRefresh,
-  IconBuildingBank
+  IconBuildingBank,
+  IconShieldCheck
 } from '@tabler/icons-react';
 
 /***************************  RECEIVABLES DASHBOARD VIEW  ***************************/
@@ -35,9 +36,9 @@ export default function DashboardView() {
   const [selectedAcquirer, setSelectedAcquirer] = useState('ALL');
 
   const tabs = [
-    { label: 'All Operations', value: 'all' },
-    { label: 'Pending Settlement (D+X)', value: 'pending' },
-    { label: 'Reconciled', value: 'reconciled' }
+    { label: 'Todas as Operações', value: 'all' },
+    { label: 'Aguardando Depósito', value: 'pending' },
+    { label: 'Conciliadas em Conta', value: 'reconciled' }
   ];
 
   const loadData = async () => {
@@ -94,17 +95,18 @@ export default function DashboardView() {
               mb: 0.5
             }}
           >
-            Receivables Agenda
+            Agenda de Recebíveis de Cartão
           </Typography>
           <Typography variant="body2" sx={{ color: '#919EAB' }}>
-            Multi-tenant card acquirers agenda orchestration &amp; D+X settlement calendar
+            Previsão consolidada de depósitos, taxas das maquininhas e conciliação bancária
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" gap={1}>
           <Button
             variant="outlined"
             onClick={loadData}
+            disabled={loading}
             startIcon={loading ? <CircularProgress size={16} /> : <IconRefresh size={16} />}
             sx={{
               borderRadius: '9999px',
@@ -114,7 +116,7 @@ export default function DashboardView() {
               '&:hover': { bgcolor: '#F3F3F3', borderColor: '#D0D0D0' }
             }}
           >
-            Refresh
+            Atualizar Agenda
           </Button>
           <PillTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
         </Stack>
@@ -122,34 +124,34 @@ export default function DashboardView() {
 
       {/* KPI Bento Grid */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <KpiCard
-            title="Total Gross Receivables (D+0)"
+            title="Total Bruto a Receber"
             value="R$ 1.849.200,00"
-            subtitle="Accrued claims booked in Ledger"
-            badgeText="+18.4% MoM"
+            subtitle="Vendas registradas nas maquininhas"
+            badgeText="+18.4% este mês"
             badgeVariant="lime"
             variant="white"
             icon={<IconTrendingUp size={20} />}
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <KpiCard
-            title="Net Settlement Liquidity"
+            title="Líquido Previsto a Depositar"
             value="R$ 1.782.900,00"
-            subtitle="After MDR deduction (avg 3.58%)"
-            badgeText="D+30 Window"
+            subtitle="Descontada taxa das operadoras (MDR 3.58%)"
+            badgeText="Janela D+30"
             badgeVariant="success"
             variant="white"
             icon={<IconCreditCard size={20} />}
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <KpiCard
-            title="Extinguished into Liquid Cash"
+            title="Vendas já Conciliadas em Caixa"
             value="R$ 8.450.000,00"
-            subtitle="Reconciled via Matcher 6"
-            badgeText="Zero Duplication"
+            subtitle="Valores creditados na conta bancária"
+            badgeText="Sem Duplicação"
             badgeVariant="dark"
             variant="lime"
             icon={<IconBuildingBank size={20} />}
@@ -159,12 +161,12 @@ export default function DashboardView() {
 
       {/* Featured Bento Highlight (Clearing & Double Entry Status) */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, lg: 7 }}>
           <BentoCard variant="dark" sx={{ height: '100%', p: 3.5 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2.5 }}>
               <Box>
                 <StatusBadge variant="lime" sx={{ mb: 1.5 }}>
-                  Double-Entry Invariant Guarded
+                  Conciliação Financeira Ativa
                 </StatusBadge>
                 <Typography
                   sx={{
@@ -176,18 +178,10 @@ export default function DashboardView() {
                     mb: 1
                   }}
                 >
-                  Universal Clearing Counterbalance
+                  Liquidação Automática e Garantia de Saldo
                 </Typography>
                 <Typography sx={{ color: '#919EAB', fontSize: '13px', lineHeight: 1.6, maxWidth: 540 }}>
-                  Sales ingested at D+0 are debited into{' '}
-                  <Box component="span" sx={{ color: '#F0FD63', fontWeight: 600 }}>
-                    @merchant/receivables
-                  </Box>{' '}
-                  and credited against{' '}
-                  <Box component="span" sx={{ color: '#FFFFFF', fontWeight: 600 }}>
-                    @external/acquirer_sumup
-                  </Box>
-                  . Upon Matcher 6 approval, claims are extinguished into liquid checking cash without double-credit inflation.
+                  Cada venda realizada em maquininhas como SumUp, Aditum ou PagBank gera uma previsão exata de recebimento. Quando o banco confirma o depósito, o valor a receber é baixado automaticamente e transferido para seu saldo disponível, sem duplicar lançamentos.
                 </Typography>
               </Box>
               <Box
@@ -199,56 +193,56 @@ export default function DashboardView() {
                   display: { xs: 'none', sm: 'flex' }
                 }}
               >
-                <IconBuildingBank size={28} />
+                <IconShieldCheck size={28} />
               </Box>
             </Stack>
 
             <Stack direction="row" spacing={3} sx={{ pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
               <Box>
                 <Typography sx={{ color: '#919EAB', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Universal Clearance
+                  Maquininhas Conectadas
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', fontWeight: 600, fontSize: '14px', mt: 0.5 }}>
-                  @external/acquirer_sumup
+                  SumUp, Aditum e PagBank
                 </Typography>
               </Box>
               <Box>
                 <Typography sx={{ color: '#919EAB', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Liquid Checking
+                  Conta de Depósito
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', fontWeight: 600, fontSize: '14px', mt: 0.5 }}>
-                  @merchant_alpha/checking
+                  Conta Corrente Verificada
                 </Typography>
               </Box>
               <Box>
                 <Typography sx={{ color: '#919EAB', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Status
+                  Conferência de Saldo
                 </Typography>
                 <Typography sx={{ color: '#F0FD63', fontWeight: 600, fontSize: '14px', mt: 0.5 }}>
-                  Balanced 100%
+                  100% Conciliado
                 </Typography>
               </Box>
             </Stack>
           </BentoCard>
         </Grid>
 
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, lg: 5 }}>
           <BentoCard variant="white" sx={{ height: '100%', p: 3.5, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '16px' }}>
-                  Connected Acquirers
+                  Maquininhas Conectadas
                 </Typography>
                 <StatusBadge variant="lime">
-                  3 Active
+                  3 Ativas
                 </StatusBadge>
               </Stack>
 
               <Stack spacing={2}>
                 {[
-                  { name: 'SumUp POS Fleet', type: 'SUMUP', status: 'Live Sync', rate: '3.50% MDR' },
-                  { name: 'Aditum Gateway', type: 'ADITUM', status: 'Live Sync', rate: '3.20% MDR' },
-                  { name: 'PagBank Online', type: 'PAGBANK', status: 'Scheduled', rate: '3.99% MDR' }
+                  { name: 'SumUp POS Filiais', type: 'SUMUP', status: 'Sincronizado', rate: 'Taxa MDR 3.50%' },
+                  { name: 'Aditum Gateway', type: 'ADITUM', status: 'Sincronizado', rate: 'Taxa MDR 3.20%' },
+                  { name: 'PagBank Checkout', type: 'PAGBANK', status: 'Programado', rate: 'Taxa MDR 3.99%' }
                 ].map((acq) => (
                   <Box
                     key={acq.name}
@@ -287,7 +281,7 @@ export default function DashboardView() {
                         </Typography>
                       </Box>
                     </Stack>
-                    <StatusBadge variant={acq.status === 'Live Sync' ? 'lime' : 'neutral'}>
+                    <StatusBadge variant={acq.status === 'Sincronizado' ? 'lime' : 'neutral'}>
                       {acq.status}
                     </StatusBadge>
                   </Box>
@@ -309,7 +303,7 @@ export default function DashboardView() {
                 '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' }
               }}
             >
-              Manage Acquirer Connections
+              Gerenciar Conexões de Maquininhas
             </Button>
           </BentoCard>
         </Grid>
@@ -334,39 +328,44 @@ export default function DashboardView() {
                 letterSpacing: '-0.02em'
               }}
             >
-              Settlement Operations &amp; Installments
+              Previsão de Depósitos e Parcelas
             </Typography>
             <Typography variant="caption" sx={{ color: '#919EAB' }}>
-              Real-time audit trail of D+X clearing schedule
+              Cronograma diário de liquidação com valores brutos e taxas de antecipação
             </Typography>
           </Box>
 
-          <Stack direction="row" spacing={1.5} alignItems="center">
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" gap={1}>
             {/* Acquirer Filter Pills */}
-            {['ALL', 'SUMUP', 'ADITUM', 'PAGBANK'].map((acq) => (
+            {[
+              { id: 'ALL', label: 'Todas' },
+              { id: 'SUMUP', label: 'SumUp' },
+              { id: 'ADITUM', label: 'Aditum' },
+              { id: 'PAGBANK', label: 'PagBank' }
+            ].map((acq) => (
               <Button
-                key={acq}
-                onClick={() => setSelectedAcquirer(acq)}
+                key={acq.id}
+                onClick={() => setSelectedAcquirer(acq.id)}
                 sx={{
                   px: 2,
                   py: 0.5,
                   borderRadius: '9999px',
                   fontSize: '11px',
-                  fontWeight: selectedAcquirer === acq ? 600 : 500,
-                  bgcolor: selectedAcquirer === acq ? '#1D1D1D' : '#F3F3F3',
-                  color: selectedAcquirer === acq ? '#FFFFFF' : '#1D1D1D',
+                  fontWeight: selectedAcquirer === acq.id ? 600 : 500,
+                  bgcolor: selectedAcquirer === acq.id ? '#1D1D1D' : '#F3F3F3',
+                  color: selectedAcquirer === acq.id ? '#FFFFFF' : '#1D1D1D',
                   '&:hover': {
-                    bgcolor: selectedAcquirer === acq ? '#1D1D1D' : '#E8E8E8'
+                    bgcolor: selectedAcquirer === acq.id ? '#1D1D1D' : '#E8E8E8'
                   }
                 }}
               >
-                {acq}
+                {acq.label}
               </Button>
             ))}
 
             <TextField
               size="small"
-              placeholder="Search NSU or brand..."
+              placeholder="Buscar por comprovante ou bandeira..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
@@ -375,7 +374,7 @@ export default function DashboardView() {
                     <IconSearch size={16} color="#919EAB" />
                   </InputAdornment>
                 ),
-                sx: { borderRadius: '9999px', bgcolor: '#F3F3F3', fontSize: '12px', width: { xs: 160, sm: 200 } }
+                sx: { borderRadius: '9999px', bgcolor: '#F3F3F3', fontSize: '12px', width: { xs: 200, sm: 240 } }
               }}
             />
           </Stack>
@@ -425,14 +424,14 @@ export default function DashboardView() {
                 <Box>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Typography sx={{ fontWeight: 700, fontSize: '13px', color: '#1D1D1D' }}>
-                      NSU {inst.nsu}
+                      Comprovante #{inst.nsu}
                     </Typography>
                     <StatusBadge variant={inst.acquirer === 'SUMUP' ? 'lime' : 'neutral'}>
                       {inst.acquirer}
                     </StatusBadge>
                   </Stack>
                   <Typography sx={{ fontSize: '11px', color: '#919EAB', mt: 0.25 }}>
-                    {inst.card_brand} • Installment {inst.installment_number}/{inst.total_installments}
+                    Bandeira: {inst.card_brand} • Parcela {inst.installment_number} de {inst.total_installments}
                   </Typography>
                 </Box>
               </Stack>
@@ -442,28 +441,28 @@ export default function DashboardView() {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <IconCalendarEvent size={15} color="#919EAB" />
                   <Typography sx={{ fontSize: '12px', color: '#1D1D1D', fontWeight: 600 }}>
-                    Expected: {inst.expected_settlement_date}
+                    Previsão de Depósito: {inst.expected_settlement_date}
                   </Typography>
                 </Stack>
                 <Typography sx={{ fontSize: '11px', color: '#919EAB', mt: 0.25 }}>
-                  {inst.account_alias}
+                  Conta Corrente Principal
                 </Typography>
               </Box>
 
               {/* Col 3: Gross / Fee / Net */}
               <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
                 <Typography sx={{ fontWeight: 700, fontSize: '14px', color: '#1D1D1D' }}>
-                  {formatCurrency(inst.net_amount)} (Net)
+                  {formatCurrency(inst.net_amount)} (Líquido)
                 </Typography>
                 <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
-                  Gross: {formatCurrency(inst.gross_amount)} | Fee: {formatCurrency(inst.mdr_fee)}
+                  Bruto: {formatCurrency(inst.gross_amount)} | Taxa: {formatCurrency(inst.mdr_fee)}
                 </Typography>
               </Box>
 
               {/* Col 4: Status Badge */}
               <Box sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
                 <StatusBadge variant={inst.status === 'RECONCILED' ? 'lime' : 'pending'}>
-                  {inst.status === 'RECONCILED' ? 'Reconciled & Cleared' : 'Pending D+X'}
+                  {inst.status === 'RECONCILED' ? 'Conciliado em Conta' : 'Aguardando Depósito'}
                 </StatusBadge>
               </Box>
             </Box>

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useTheme } from '@mui/material/styles';
 import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Divider from '@mui/material/Divider';
 import Fade from '@mui/material/Fade';
@@ -15,77 +14,61 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Popper from '@mui/material/Popper';
 import Stack from '@mui/material/Stack';
-import Switch from '@mui/material/Switch';
 import Box from '@mui/material/Box';
 
 // @project
-import { ThemeDirection, ThemeI18n } from '@/config';
+import { ThemeDirection } from '@/config';
 import MainCard from '@/components/MainCard';
 import Profile from '@/components/Profile';
-import { AuthRole, AvatarSize, ChipIconPosition } from '@/enum';
+import { AuthRole, AvatarSize } from '@/enum';
 import useConfig from '@/hooks/useConfig';
 import useCurrentUser from '@/hooks/useCurrentUser';
 import { logout } from '@/utils/api/auth';
 
-// @types
-
 // @assets
-import { IconChevronRight, IconLanguage, IconLogout, IconSettings, IconTextDirectionLtr } from '@tabler/icons-react';
-
-import profile from '@/assets/images/users/avatar-1.png';
-
-/***************************  HEADER - PROFILE DATA  ***************************/
-
-const profileData = {
-  avatar: { src: profile, size: AvatarSize.XS },
-  title: 'Erika Collins',
-  caption: 'Super Admin'
-};
-
-const languageList = [
-  { key: ThemeI18n.EN, value: 'English' },
-  { key: ThemeI18n.FR, value: 'French' },
-  { key: ThemeI18n.RO, value: 'Romanian' },
-  { key: ThemeI18n.ZH, value: 'Chinese' }
-];
-
-const RoleTitles = {
-  [AuthRole.SUPER_ADMIN]: 'Super Admin',
-  [AuthRole.ADMIN]: 'Admin',
-  [AuthRole.USER]: 'User'
-};
+import { IconLogout, IconSettings, IconUser } from '@tabler/icons-react';
 
 /***************************  HEADER - PROFILE  ***************************/
 
+const RoleTitles = {
+  [AuthRole.SUPER_ADMIN]: 'Administrador Financeiro',
+  [AuthRole.ADMIN]: 'Operador Financeiro',
+  [AuthRole.USER]: 'Auditor Contábil'
+};
+
 export default function ProfileSection() {
   const theme = useTheme();
-  const {
-    state: { i18n, themeDirection },
-    setField
-  } = useConfig();
   const { userData } = useCurrentUser();
 
   const [anchorEl, setAnchorEl] = useState(null);
-  const [innerAnchorEl, setInnerAnchorEl] = useState(null);
 
   const open = Boolean(anchorEl);
-  const innerOpen = Boolean(innerAnchorEl);
   const id = open ? 'profile-action-popper' : undefined;
-  const innerId = innerOpen ? 'profile-inner-popper' : undefined;
   const buttonStyle = { borderRadius: 2, p: 1 };
 
-  if (userData && Object.keys(userData).length > 0) {
-    const name = `${userData?.firstname ?? ''} ${userData?.lastname ?? ''}`.trim();
-    profileData.caption = userData?.role ? RoleTitles[userData.role] : undefined;
-    profileData.title = name;
-  }
+  const name = userData && Object.keys(userData).length > 0 && userData.firstname
+    ? `${userData.firstname} ${userData.lastname}`.trim()
+    : 'Adryan Alencar';
+  const roleTitle = userData?.role ? RoleTitles[userData.role] || 'Administrador Financeiro' : 'Administrador Financeiro';
+  const initials = name
+    .split(' ')
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || 'AA';
+
+  const currentProfileData = {
+    avatar: {
+      children: initials,
+      size: AvatarSize.XS,
+      sx: { width: 34, height: 34, bgcolor: '#F0FD63', color: '#1D1D1D', fontWeight: 700 }
+    },
+    title: name,
+    caption: roleTitle
+  };
 
   const handleActionClick = (event) => {
     setAnchorEl(anchorEl ? null : event.currentTarget);
-  };
-
-  const handleInnerActionClick = (event) => {
-    setInnerAnchorEl(innerAnchorEl ? null : event.currentTarget);
   };
 
   const logoutAccount = () => {
@@ -93,19 +76,25 @@ export default function ProfileSection() {
     logout();
   };
 
-  const i18nHandler = (event, key) => {
-    handleInnerActionClick(event);
-    if (key != i18n) setField('i18n', key);
-  };
-
   return (
     <>
       <Box onClick={handleActionClick} sx={{ cursor: 'pointer' }}>
         <Box sx={{ display: { xs: 'none', sm: 'flex' } }}>
-          <Profile {...profileData} />
+          <Profile {...currentProfileData} />
         </Box>
         <Box sx={{ display: { xs: 'block', sm: 'none' } }}>
-          <Avatar {...profileData.avatar} alt={profileData.title} />
+          <Avatar
+            sx={{
+              width: 32,
+              height: 32,
+              bgcolor: '#F0FD63',
+              color: '#1D1D1D',
+              fontSize: '12px',
+              fontWeight: 700
+            }}
+          >
+            {initials}
+          </Avatar>
         </Box>
       </Box>
       <Popper
@@ -122,95 +111,30 @@ export default function ProfileSection() {
               <ClickAwayListener onClickAway={() => setAnchorEl(null)}>
                 <Stack sx={{ px: 0.5, py: 0.75 }}>
                   <Profile
-                    {...profileData}
+                    {...currentProfileData}
                     sx={{
                       flexDirection: 'column',
                       justifyContent: 'center',
                       textAlign: 'center',
                       width: 1,
-                      '& .MuiAvatar-root': { width: 48, height: 48 }
+                      '& .MuiAvatar-root': { width: 44, height: 44, fontSize: '15px', mx: 'auto', mb: 0.5 }
                     }}
                   />
                   <Divider sx={{ my: 1 }} />
                   <List disablePadding>
-                    <ListItem
-                      secondaryAction={
-                        <Switch
-                          size="small"
-                          checked={theme.direction === ThemeDirection.RTL}
-                          onChange={() =>
-                            setField('themeDirection', themeDirection === ThemeDirection.RTL ? ThemeDirection.LTR : ThemeDirection.RTL)
-                          }
-                        />
-                      }
-                      sx={{ py: 1, pl: 1, '& .MuiListItemSecondaryAction-root': { right: 8 } }}
-                    >
+                    <ListItemButton href="#" sx={buttonStyle}>
                       <ListItemIcon>
-                        <IconTextDirectionLtr size={16} />
+                        <IconUser size={16} />
                       </ListItemIcon>
-                      <ListItemText primary="RTL" />
-                    </ListItem>
-                    <ListItemButton sx={buttonStyle} onClick={handleInnerActionClick}>
-                      <ListItemIcon>
-                        <IconLanguage size={16} />
-                      </ListItemIcon>
-                      <ListItemText primary="Language" />
-                      <Chip
-                        label={languageList.filter((item) => item.key === i18n)[0]?.value.slice(0, 3)}
-                        variant="text"
-                        size="small"
-                        color="secondary"
-                        icon={<IconChevronRight size={16} />}
-                        position={ChipIconPosition.RIGHT}
-                        sx={{ textTransform: 'capitalize' }}
-                      />
-                      <Popper
-                        placement="left-start"
-                        id={innerId}
-                        open={innerOpen}
-                        anchorEl={innerAnchorEl}
-                        transition
-                        popperOptions={{
-                          modifiers: [
-                            {
-                              name: 'preventOverflow',
-                              options: {
-                                boundary: 'clippingParents'
-                              }
-                            },
-                            { name: 'offset', options: { offset: [0, 8] } }
-                          ]
-                        }}
-                      >
-                        {({ TransitionProps }) => (
-                          <Fade in={innerOpen} {...TransitionProps}>
-                            <MainCard sx={{ borderRadius: 2, boxShadow: theme.vars.customShadows.tooltip, minWidth: 150, p: 0.5 }}>
-                              <ClickAwayListener onClickAway={() => setInnerAnchorEl(null)}>
-                                <List disablePadding>
-                                  {languageList.map((item, index) => (
-                                    <ListItemButton
-                                      selected={item.key === i18n}
-                                      key={index}
-                                      sx={buttonStyle}
-                                      onClick={(event) => i18nHandler(event, item.key)}
-                                    >
-                                      <ListItemText>{item.value}</ListItemText>
-                                    </ListItemButton>
-                                  ))}
-                                </List>
-                              </ClickAwayListener>
-                            </MainCard>
-                          </Fade>
-                        )}
-                      </Popper>
+                      <ListItemText primary="Minha Conta" />
                     </ListItemButton>
                     <ListItemButton href="#" sx={{ ...buttonStyle, my: 0.5 }}>
                       <ListItemIcon>
                         <IconSettings size={16} />
                       </ListItemIcon>
-                      <ListItemText primary="Settings" />
+                      <ListItemText primary="Configurações" />
                     </ListItemButton>
-                    <ListItem disablePadding>
+                    <ListItem disablePadding sx={{ mt: 1 }}>
                       <Button
                         fullWidth
                         variant="outlined"
@@ -218,8 +142,9 @@ export default function ProfileSection() {
                         size="small"
                         endIcon={<IconLogout size={16} />}
                         onClick={logoutAccount}
+                        sx={{ borderRadius: '8px' }}
                       >
-                        Logout
+                        Sair
                       </Button>
                     </ListItem>
                   </List>
