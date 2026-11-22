@@ -3,28 +3,22 @@ import Stack from '@mui/material/Stack';
 
 // @project
 import MiniDrawer from './MiniDrawer';
-import NavCard from './NavCard';
 import ResponsiveDrawer from './ResponsiveDrawer';
 
 import { useGetMenuMaster } from '@/states/menu';
-import { MINI_DRAWER_WIDTH } from '@/config';
 import SimpleBar from '@/components/third-party/SimpleBar';
 
-/***************************  DRAWER - CONTENT  ***************************/
+/***************************  DRAWER - CONTENT (NO USER FOOTER)  ***************************/
 
 export default function DrawerContent() {
   const upLG = useMediaQuery((theme) => theme.breakpoints.up('lg'));
-
   const { menuMaster } = useGetMenuMaster();
   const drawerOpen = menuMaster.isDashboardDrawerOpened;
 
-  const contentHeight = `calc(100vh - ${MINI_DRAWER_WIDTH}px)`;
-
   return (
-    <SimpleBar sx={{ height: contentHeight }}>
-      <Stack sx={{ minHeight: contentHeight, px: !drawerOpen && upLG ? 0 : 2, justifyContent: 'space-between' }}>
+    <SimpleBar sx={{ height: 'calc(100vh - 70px)' }}>
+      <Stack sx={{ px: !drawerOpen && upLG ? 0 : 2, pt: 1 }}>
         {!drawerOpen && upLG ? <MiniDrawer /> : <ResponsiveDrawer />}
-        <NavCard isMiniDrawer={!drawerOpen && upLG} />
       </Stack>
     </SimpleBar>
   );
