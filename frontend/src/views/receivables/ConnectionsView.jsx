@@ -22,10 +22,10 @@ import { receivablesApi } from '@/api/receivablesApi';
 import {
   IconPlus,
   IconRefresh,
-  IconPlugConnected,
   IconClock,
   IconKey,
-  IconCheck
+  IconCheck,
+  IconBuildingStore
 } from '@tabler/icons-react';
 
 /***************************  ACQUIRER CONNECTIONS VIEW  ***************************/
@@ -114,10 +114,10 @@ export default function ConnectionsView() {
               mb: 0.5
             }}
           >
-            Maquininhas e Operadoras Conectadas
+            Operadoras e Credenciadoras Conectadas
           </Typography>
           <Typography variant="body2" sx={{ color: '#919EAB' }}>
-            Gestão de pontos de venda (POS), gateways e credenciais de operadoras integradas
+            Contratos de adquirência e credenciamentos integrados para captura automática de vendas
           </Typography>
         </Box>
 
@@ -133,7 +133,7 @@ export default function ConnectionsView() {
             '&:hover': { bgcolor: '#000000' }
           }}
         >
-          Conectar Nova Maquininha
+          Conectar Nova Credenciadora
         </Button>
       </Stack>
 
@@ -174,7 +174,7 @@ export default function ConnectionsView() {
                       {conn.acquirer_type.slice(0, 3)}
                     </Box>
                     <StatusBadge variant={conn.status === 'ACTIVE' ? 'lime' : 'neutral'}>
-                      {conn.status === 'ACTIVE' ? 'Conexão Ativa' : 'Pausado'}
+                      {conn.status === 'ACTIVE' ? 'Contrato Ativo' : 'Pausado'}
                     </StatusBadge>
                   </Stack>
 
@@ -191,14 +191,20 @@ export default function ConnectionsView() {
                     {conn.display_name}
                   </Typography>
                   <Typography sx={{ color: '#919EAB', fontSize: '12px', mb: 2 }}>
-                    Operadora: {conn.acquirer_type}
+                    Credenciadora: {conn.acquirer_type}
                   </Typography>
 
                   <Stack spacing={1.5} sx={{ p: 2, borderRadius: '14px', bgcolor: '#F3F3F3', mb: 2.5 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                       <IconKey size={15} color="#919EAB" />
                       <Typography sx={{ fontSize: '12px', color: '#666666' }}>
-                        ID do Estabelecimento: <strong>{conn.merchant_code || '12345678000195'}</strong>
+                        Merchant ID (Afiliação): <strong>{conn.merchant_code || '12345678000195'}</strong>
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <IconBuildingStore size={15} color="#919EAB" />
+                      <Typography sx={{ fontSize: '12px', color: '#666666' }}>
+                        Terminais e POS vinculados: <strong>Múltiplos</strong>
                       </Typography>
                     </Stack>
                     <Stack direction="row" spacing={1} alignItems="center">
@@ -234,7 +240,7 @@ export default function ConnectionsView() {
                     '&:hover': { bgcolor: '#F3F3F3' }
                   }}
                 >
-                  {isSyncing ? 'Sincronizando vendas...' : isRecentlySynced ? 'Vendas Atualizadas!' : 'Sincronizar Vendas Agora'}
+                  {isSyncing ? 'Sincronizando transações...' : isRecentlySynced ? 'Vendas Atualizadas!' : 'Sincronizar Vendas'}
                 </Button>
               </BentoCard>
             </Grid>
@@ -242,7 +248,7 @@ export default function ConnectionsView() {
         })}
       </Grid>
 
-      {/* Modal - Conectar Maquininha */}
+      {/* Modal - Conectar Credenciadora */}
       <Dialog
         open={openModal}
         onClose={() => setOpenModal(false)}
@@ -260,27 +266,27 @@ export default function ConnectionsView() {
         }}
       >
         <DialogTitle sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '18px' }}>
-          Conectar Nova Maquininha
+          Conectar Credenciadora / Adquirente
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
               select
-              label="Operadora / Gateway"
+              label="Operadora / Adquirente"
               value={acquirerType}
               onChange={(e) => setAcquirerType(e.target.value)}
               fullWidth
               size="small"
             >
-              <MenuItem value="SUMUP">SumUp</MenuItem>
-              <MenuItem value="ADITUM">Aditum</MenuItem>
+              <MenuItem value="SUMUP">SumUp Pagamentos</MenuItem>
+              <MenuItem value="ADITUM">Aditum Gateway / TEF</MenuItem>
               <MenuItem value="PAGBANK">PagBank (PagSeguro)</MenuItem>
               <MenuItem value="STONE">Stone Pagamentos</MenuItem>
             </TextField>
 
             <TextField
-              label="Identificação do Ponto de Venda"
-              placeholder="Ex: Maquininha Balcão Filial 1"
+              label="Identificação do Credenciamento"
+              placeholder="Ex: Afiliação Matriz Centro"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               fullWidth
@@ -288,7 +294,7 @@ export default function ConnectionsView() {
             />
 
             <TextField
-              label="Código do Estabelecimento (Merchant ID)"
+              label="Código do Estabelecimento (Merchant ID / StoneCode)"
               placeholder="Ex: 01948df2-aditum-merchant-uuid"
               value={merchantCode}
               onChange={(e) => setMerchantCode(e.target.value)}
@@ -297,8 +303,8 @@ export default function ConnectionsView() {
             />
 
             <TextField
-              label="Token de Acesso / API Key"
-              placeholder="Chave secreta fornecida pela adquirente"
+              label="Token de Acesso / API Key da Credenciadora"
+              placeholder="Chave secreta ou credencial de API"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
@@ -326,7 +332,7 @@ export default function ConnectionsView() {
               '&:hover': { bgcolor: '#000000' }
             }}
           >
-            Salvar Conexão
+            Salvar Credenciamento
           </Button>
         </DialogActions>
       </Dialog>

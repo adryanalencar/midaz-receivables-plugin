@@ -5,14 +5,14 @@ const receivablesMenu = {
   children: [
     {
       id: 'receivables-agenda',
-      title: 'Agenda de Vendas',
+      title: 'Agenda de Recebíveis',
       type: 'item',
       url: '/receivables',
       icon: 'IconCalendarEvent'
     },
     {
       id: 'acquirer-connections',
-      title: 'Maquininhas e POS',
+      title: 'Operadoras e Credenciadoras',
       type: 'item',
       url: '/receivables/connections',
       icon: 'IconCreditCard'

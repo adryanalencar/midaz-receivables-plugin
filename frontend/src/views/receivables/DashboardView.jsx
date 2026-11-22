@@ -23,7 +23,8 @@ import {
   IconSearch,
   IconRefresh,
   IconBuildingBank,
-  IconShieldCheck
+  IconShieldCheck,
+  IconDeviceDesktop
 } from '@tabler/icons-react';
 
 /***************************  RECEIVABLES DASHBOARD VIEW  ***************************/
@@ -98,7 +99,7 @@ export default function DashboardView() {
             Agenda de Recebíveis de Cartão
           </Typography>
           <Typography variant="body2" sx={{ color: '#919EAB' }}>
-            Previsão consolidada de depósitos, taxas das maquininhas e conciliação bancária
+            Previsão consolidada de depósitos, taxas das credenciadoras e rastreabilidade por terminal (TID)
           </Typography>
         </Box>
 
@@ -128,7 +129,7 @@ export default function DashboardView() {
           <KpiCard
             title="Total Bruto a Receber"
             value="R$ 1.849.200,00"
-            subtitle="Vendas registradas nas maquininhas"
+            subtitle="Vendas capturadas em todas as credenciadoras"
             badgeText="+18.4% este mês"
             badgeVariant="lime"
             variant="white"
@@ -139,7 +140,7 @@ export default function DashboardView() {
           <KpiCard
             title="Líquido Previsto a Depositar"
             value="R$ 1.782.900,00"
-            subtitle="Descontada taxa das operadoras (MDR 3.58%)"
+            subtitle="Descontada taxa MDR média de 3.58%"
             badgeText="Janela D+30"
             badgeVariant="success"
             variant="white"
@@ -150,7 +151,7 @@ export default function DashboardView() {
           <KpiCard
             title="Vendas já Conciliadas em Caixa"
             value="R$ 8.450.000,00"
-            subtitle="Valores creditados na conta bancária"
+            subtitle="Depósitos confirmados via Open Finance"
             badgeText="Sem Duplicação"
             badgeVariant="dark"
             variant="lime"
@@ -178,10 +179,10 @@ export default function DashboardView() {
                     mb: 1
                   }}
                 >
-                  Liquidação Automática e Garantia de Saldo
+                  Liquidação Automática e Rastreabilidade Total
                 </Typography>
                 <Typography sx={{ color: '#919EAB', fontSize: '13px', lineHeight: 1.6, maxWidth: 540 }}>
-                  Cada venda realizada em maquininhas como SumUp, Aditum ou PagBank gera uma previsão exata de recebimento. Quando o banco confirma o depósito, o valor a receber é baixado automaticamente e transferido para seu saldo disponível, sem duplicar lançamentos.
+                  Cada transação capturada por suas credenciadoras (SumUp, Aditum, PagBank) identifica individualmente o número do comprovante (NSU) e o terminal (TID). Ao cruzar com os depósitos bancários, o valor é liquidado no seu saldo disponível de forma transparente.
                 </Typography>
               </Box>
               <Box
@@ -200,7 +201,7 @@ export default function DashboardView() {
             <Stack direction="row" spacing={3} sx={{ pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
               <Box>
                 <Typography sx={{ color: '#919EAB', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Maquininhas Conectadas
+                  Credenciadoras
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', fontWeight: 600, fontSize: '14px', mt: 0.5 }}>
                   SumUp, Aditum e PagBank
@@ -208,10 +209,10 @@ export default function DashboardView() {
               </Box>
               <Box>
                 <Typography sx={{ color: '#919EAB', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Conta de Depósito
+                  Identificadores
                 </Typography>
                 <Typography sx={{ color: '#FFFFFF', fontWeight: 600, fontSize: '14px', mt: 0.5 }}>
-                  Conta Corrente Verificada
+                  NSU + Terminal (TID)
                 </Typography>
               </Box>
               <Box>
@@ -231,18 +232,18 @@ export default function DashboardView() {
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography sx={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 700, fontSize: '16px' }}>
-                  Maquininhas Conectadas
+                  Credenciadoras Ativas
                 </Typography>
                 <StatusBadge variant="lime">
-                  3 Ativas
+                  3 Contratos
                 </StatusBadge>
               </Stack>
 
               <Stack spacing={2}>
                 {[
-                  { name: 'SumUp POS Filiais', type: 'SUMUP', status: 'Sincronizado', rate: 'Taxa MDR 3.50%' },
-                  { name: 'Aditum Gateway', type: 'ADITUM', status: 'Sincronizado', rate: 'Taxa MDR 3.20%' },
-                  { name: 'PagBank Checkout', type: 'PAGBANK', status: 'Programado', rate: 'Taxa MDR 3.99%' }
+                  { name: 'SumUp Pagamentos', type: 'SUMUP', status: 'Sincronizado', rate: 'Taxa MDR 3.50%', terminals: '12 Terminais POS' },
+                  { name: 'Aditum Gateway / TEF', type: 'ADITUM', status: 'Sincronizado', rate: 'Taxa MDR 3.20%', terminals: '8 Caixas TEF' },
+                  { name: 'PagBank Checkout', type: 'PAGBANK', status: 'Programado', rate: 'Taxa MDR 3.99%', terminals: 'Online & POS' }
                 ].map((acq) => (
                   <Box
                     key={acq.name}
@@ -277,7 +278,7 @@ export default function DashboardView() {
                           {acq.name}
                         </Typography>
                         <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
-                          {acq.rate}
+                          {acq.terminals} • {acq.rate}
                         </Typography>
                       </Box>
                     </Stack>
@@ -303,7 +304,7 @@ export default function DashboardView() {
                 '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' }
               }}
             >
-              Gerenciar Conexões de Maquininhas
+              Gerenciar Contratos de Credenciadoras
             </Button>
           </BentoCard>
         </Grid>
@@ -328,10 +329,10 @@ export default function DashboardView() {
                 letterSpacing: '-0.02em'
               }}
             >
-              Previsão de Depósitos e Parcelas
+              Previsão de Depósitos e Rastreio de Transações
             </Typography>
             <Typography variant="caption" sx={{ color: '#919EAB' }}>
-              Cronograma diário de liquidação com valores brutos e taxas de antecipação
+              Identificação por NSU, Terminal de Captura (TID) e cronograma diário de liquidação
             </Typography>
           </Box>
 
@@ -365,7 +366,7 @@ export default function DashboardView() {
 
             <TextField
               size="small"
-              placeholder="Buscar por comprovante ou bandeira..."
+              placeholder="Buscar NSU, terminal ou bandeira..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
@@ -374,7 +375,7 @@ export default function DashboardView() {
                     <IconSearch size={16} color="#919EAB" />
                   </InputAdornment>
                 ),
-                sx: { borderRadius: '9999px', bgcolor: '#F3F3F3', fontSize: '12px', width: { xs: 200, sm: 240 } }
+                sx: { borderRadius: '9999px', bgcolor: '#F3F3F3', fontSize: '12px', width: { xs: 200, sm: 260 } }
               }}
             />
           </Stack>
@@ -382,91 +383,103 @@ export default function DashboardView() {
 
         {/* Operations List */}
         <Stack spacing={1.5}>
-          {filteredInstallments.map((inst) => (
-            <Box
-              key={inst.id}
-              sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column', md: 'row' },
-                alignItems: { xs: 'flex-start', md: 'center' },
-                justifyContent: 'space-between',
-                p: 2,
-                borderRadius: '16px',
-                bgcolor: '#FFFFFF',
-                border: '1px solid #E8E8E8',
-                gap: 2,
-                transition: 'all 0.15s ease',
-                '&:hover': {
-                  borderColor: '#D0D0D0',
-                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
-                }
-              }}
-            >
-              {/* Col 1: Acquirer + NSU */}
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  sx={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: '12px',
-                    bgcolor: inst.acquirer === 'SUMUP' ? '#F0FD63' : inst.acquirer === 'ADITUM' ? '#1D1D1D' : '#919EAB',
-                    color: inst.acquirer === 'SUMUP' ? '#1D1D1D' : '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    flexShrink: 0
-                  }}
-                >
-                  {inst.acquirer.slice(0, 3)}
-                </Box>
+          {filteredInstallments.map((inst, idx) => {
+            const terminalMock = inst.acquirer === 'SUMUP' ? `POS-0${(idx % 4) + 1}` : inst.acquirer === 'ADITUM' ? `TEF-CX0${(idx % 3) + 1}` : `ONLINE-CHK`;
+
+            return (
+              <Box
+                key={inst.id}
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', md: 'row' },
+                  alignItems: { xs: 'flex-start', md: 'center' },
+                  justifyContent: 'space-between',
+                  p: 2,
+                  borderRadius: '16px',
+                  bgcolor: '#FFFFFF',
+                  border: '1px solid #E8E8E8',
+                  gap: 2,
+                  transition: 'all 0.15s ease',
+                  '&:hover': {
+                    borderColor: '#D0D0D0',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)'
+                  }
+                }}
+              >
+                {/* Col 1: Acquirer + NSU + Terminal */}
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: '12px',
+                      bgcolor: inst.acquirer === 'SUMUP' ? '#F0FD63' : inst.acquirer === 'ADITUM' ? '#1D1D1D' : '#919EAB',
+                      color: inst.acquirer === 'SUMUP' ? '#1D1D1D' : '#FFFFFF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '12px',
+                      flexShrink: 0
+                    }}
+                  >
+                    {inst.acquirer.slice(0, 3)}
+                  </Box>
+                  <Box>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography sx={{ fontWeight: 700, fontSize: '13px', color: '#1D1D1D' }}>
+                        NSU #{inst.nsu}
+                      </Typography>
+                      <StatusBadge variant={inst.acquirer === 'SUMUP' ? 'lime' : 'neutral'}>
+                        {inst.acquirer}
+                      </StatusBadge>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.25 }}>
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <IconDeviceDesktop size={13} color="#919EAB" />
+                        <Typography sx={{ fontSize: '11px', color: '#666666', fontWeight: 600 }}>
+                          Terminal: {terminalMock}
+                        </Typography>
+                      </Stack>
+                      <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
+                        • {inst.card_brand} • Parcela {inst.installment_number}/{inst.total_installments}
+                      </Typography>
+                    </Stack>
+                  </Box>
+                </Stack>
+
+                {/* Col 2: Date + Schedule */}
                 <Box>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <Typography sx={{ fontWeight: 700, fontSize: '13px', color: '#1D1D1D' }}>
-                      Comprovante #{inst.nsu}
+                    <IconCalendarEvent size={15} color="#919EAB" />
+                    <Typography sx={{ fontSize: '12px', color: '#1D1D1D', fontWeight: 600 }}>
+                      Previsão: {inst.expected_settlement_date}
                     </Typography>
-                    <StatusBadge variant={inst.acquirer === 'SUMUP' ? 'lime' : 'neutral'}>
-                      {inst.acquirer}
-                    </StatusBadge>
                   </Stack>
                   <Typography sx={{ fontSize: '11px', color: '#919EAB', mt: 0.25 }}>
-                    Bandeira: {inst.card_brand} • Parcela {inst.installment_number} de {inst.total_installments}
+                    Conta Corrente Principal
                   </Typography>
                 </Box>
-              </Stack>
 
-              {/* Col 2: Date + Schedule */}
-              <Box>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <IconCalendarEvent size={15} color="#919EAB" />
-                  <Typography sx={{ fontSize: '12px', color: '#1D1D1D', fontWeight: 600 }}>
-                    Previsão de Depósito: {inst.expected_settlement_date}
+                {/* Col 3: Gross / Fee / Net */}
+                <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '14px', color: '#1D1D1D' }}>
+                    {formatCurrency(inst.net_amount)} (Líquido)
                   </Typography>
-                </Stack>
-                <Typography sx={{ fontSize: '11px', color: '#919EAB', mt: 0.25 }}>
-                  Conta Corrente Principal
-                </Typography>
-              </Box>
+                  <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
+                    Bruto: {formatCurrency(inst.gross_amount)} | Taxa MDR: {formatCurrency(inst.mdr_fee)}
+                  </Typography>
+                </Box>
 
-              {/* Col 3: Gross / Fee / Net */}
-              <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                <Typography sx={{ fontWeight: 700, fontSize: '14px', color: '#1D1D1D' }}>
-                  {formatCurrency(inst.net_amount)} (Líquido)
-                </Typography>
-                <Typography sx={{ fontSize: '11px', color: '#919EAB' }}>
-                  Bruto: {formatCurrency(inst.gross_amount)} | Taxa: {formatCurrency(inst.mdr_fee)}
-                </Typography>
+                {/* Col 4: Status Badge */}
+                <Box sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
+                  <StatusBadge variant={inst.status === 'RECONCILED' ? 'lime' : 'pending'}>
+                    {inst.status === 'RECONCILED' ? 'Conciliado em Conta' : 'Aguardando Depósito'}
+                  </StatusBadge>
+                </Box>
               </Box>
-
-              {/* Col 4: Status Badge */}
-              <Box sx={{ alignSelf: { xs: 'flex-start', md: 'center' } }}>
-                <StatusBadge variant={inst.status === 'RECONCILED' ? 'lime' : 'pending'}>
-                  {inst.status === 'RECONCILED' ? 'Conciliado em Conta' : 'Aguardando Depósito'}
-                </StatusBadge>
-              </Box>
-            </Box>
-          ))}
+            );
+          })}
         </Stack>
       </BentoCard>
     </Box>
